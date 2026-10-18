@@ -1,7 +1,9 @@
 """Rendering bernstein's lobster-project template for one half of a new pair."""
 
+import json
 import os
 import re
+import shlex
 
 
 class TemplateRefused(ValueError):
@@ -65,6 +67,11 @@ def render_half(template_dir, half, values, public):
         with open(path, encoding="utf-8") as f:
             text = f.read()
         rendered[rel] = fill(resolve_includes(text, template_dir, values, where), values, where)
+        if rel.endswith(".json"):
+            try:
+                json.loads(rendered[rel])
+            except ValueError:
+                raise TemplateRefused(f"{where}: not valid JSON once filled in")
     return rendered
 
 
@@ -95,6 +102,7 @@ def values_for(name, half, model, effort, non_code_dir, code_dir, mail_root, lob
         "NONCODE_PATH": tilde(os.path.join(non_code_dir, name), home),
         "TOOLS_PATH": tilde(tools_path, home),
         "MAIL_ROOT": tilde(mail_root, home),
+        "MAIL_ROOT_SHELL": shlex.quote(mail_root),
         "LOBSTER_TOOLS": tilde(os.path.dirname(lobster_mail), home),
         "VISIBILITY": "public" if public else "private",
         "BACKLOG_PREFIX": name.replace("-", "")[:2].upper(),

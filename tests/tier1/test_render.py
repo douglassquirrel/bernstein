@@ -92,10 +92,26 @@ def test_values_for_each_half():
         "KIND": "non-code", "PACKAGE": "recipestools", "DATE": "8 October 2026", "YEAR": "2026",
         "MODEL": "Opus", "MODEL_SETTING": "opus", "EFFORT": "high",
         "NONCODE_PATH": "~/projects/non-code/recipes", "TOOLS_PATH": "~/projects/code/recipes-tools",
-        "MAIL_ROOT": "~/projects/mail", "LOBSTER_TOOLS": "~/l/lobster-tools", "VISIBILITY": "private",
+        "MAIL_ROOT": "~/projects/mail", "MAIL_ROOT_SHELL": "/h/projects/mail",
+        "LOBSTER_TOOLS": "~/l/lobster-tools", "VISIBILITY": "private",
         "BACKLOG_PREFIX": "RE", "QUESTIONS_AT": 'CLAUDE.md, "Open questions for Squirrel"',
     }
     code = values_for("recipes", "code", public=True, **common)
     assert (code["SELF"], code["SISTER"], code["KIND"], code["VISIBILITY"]) == ("recipes-tools", "recipes", "code", "public")
     assert code["TOOLS_PATH"] == "~/projects/code/recipes-tools-code/recipes-tools"
     assert code["QUESTIONS_AT"] == 'PLAN.md, "Open questions"'
+
+
+def test_the_mail_root_for_the_shell_is_quoted_only_when_it_must_be():
+    common = {"model": "opus", "effort": "high", "non_code_dir": "/h/n", "code_dir": "/h/c",
+                  "lobster_mail": "/h/l/lobster-mail", "today": datetime.date(2026, 10, 8), "home": "/h"}
+    got = values_for("recipes", "code", public=False, mail_root="/h/my mail", **common)
+    assert got["MAIL_ROOT_SHELL"] == "'/h/my mail'"
+
+
+def test_a_json_file_that_is_not_valid_once_filled_in_is_refused(tmp_path):
+    t = template(tmp_path)
+    (t / "non-code" / ".claude" / "settings.json").write_text('{"command": "start --as {{NAME}}"\n', encoding="utf-8")
+    with pytest.raises(TemplateRefused) as refused:
+        render_half(str(t), "non-code", VALUES, public=False)
+    assert str(refused.value) == "non-code/.claude/settings.json: not valid JSON once filled in"
