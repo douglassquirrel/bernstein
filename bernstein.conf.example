@@ -1,5 +1,18 @@
-# Copy to ~/.bernstein.conf and edit. Every setting can also be given as a flag on the command
-# line, which wins over this file. This file is read, never run: KEY=value lines, # comments,
-# optional quotes, and a leading ~ in a path means your home folder. Only what belongs to this
-# machine goes here; nothing secret.
-#SETTING=~/somewhere
+# Copy to ~/.bernstein.conf and edit. Every setting is optional and can also be given as a flag
+# on the command line where one exists, which wins. This file is read, never run: KEY=value lines,
+# # comments, optional quotes, and a leading ~ in a path means your home folder. Only what belongs
+# to this machine goes here; nothing secret.
+
+# The lobster-project template new-lobster copies from (kept outside this repository).
+#TEMPLATE=~/projects/code/bernstein-code/templates/lobster
+# Where new non-code projects and new code projects go.
+#NON_CODE_DIR=~/projects/non-code
+#CODE_DIR=~/projects/code
+# The model and effort every session of a new project is asked to confirm first.
+#MODEL=opus
+#EFFORT=high
+# lobster-mail, and the mail root it uses.
+#LOBSTER_MAIL=~/projects/code/lobster-tools-code/lobster-tools/lobster-mail
+#MAIL_ROOT=~/projects/mail
+# The Python that makes each tools project's .venv.
+#PYTHON=/usr/bin/python3

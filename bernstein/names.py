@@ -23,4 +23,3 @@ def check_name(name):
         raise NameRefused("use single hyphens only")
     if name.endswith("-tools"):
         raise NameRefused("the name must not end in -tools: new-lobster adds -tools for the tools project")
-    return None

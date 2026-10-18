@@ -83,9 +83,9 @@ def test_refuses_a_missing_template_folder(tmp_path):
 
 
 def test_values_for_each_half():
-    common = dict(model="opus", effort="high", non_code_dir="/h/projects/non-code", code_dir="/h/projects/code",
-                  mail_root="/h/projects/mail", lobster_mail="/h/l/lobster-tools/lobster-mail",
-                  today=datetime.date(2026, 10, 8), home="/h")
+    common = {"model": "opus", "effort": "high", "non_code_dir": "/h/projects/non-code", "code_dir": "/h/projects/code",
+                  "mail_root": "/h/projects/mail", "lobster_mail": "/h/l/lobster-tools/lobster-mail",
+                  "today": datetime.date(2026, 10, 8), "home": "/h"}
     nc = values_for("recipes", "non-code", public=False, **common)
     assert nc == {
         "NAME": "recipes", "TOOLS": "recipes-tools", "SELF": "recipes", "SISTER": "recipes-tools",

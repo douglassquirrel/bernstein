@@ -11,7 +11,7 @@ class TemplateRefused(ValueError):
 MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September",
           "October", "November", "December")
 PLACEHOLDER = re.compile(r"\{\{([A-Z_]+)\}\}")
-INCLUDE = re.compile(r"^\{\{> (sections/[^\n]+)\}\}$", re.M)
+INCLUDE = re.compile(r"^\{\{> (sections/[^\n]+)\}\}$", re.MULTILINE)
 
 
 def fill(text, values, where):
@@ -19,7 +19,7 @@ def fill(text, values, where):
     def one(match):
         name = match.group(1)
         if name not in values:
-            raise TemplateRefused("%s: unknown placeholder {{%s}}" % (where, name))
+            raise TemplateRefused(f"{where}: unknown placeholder {{{{{name}}}}}")
         return values[name]
     return PLACEHOLDER.sub(one, text)
 
@@ -30,7 +30,7 @@ def resolve_includes(text, template_dir, values, where):
         name = fill(match.group(1), values, where)
         path = os.path.join(template_dir, "common", name)
         if not os.path.isfile(path):
-            raise TemplateRefused("%s: the include %s is not in common/" % (where, name))
+            raise TemplateRefused(f"{where}: the include {name} is not in common/")
         with open(path, encoding="utf-8") as f:
             return f.read().rstrip("\n")
     return INCLUDE.sub(one, text)
@@ -50,7 +50,7 @@ def render_half(template_dir, half, values, public):
     """Every file of one half, as {relative path: text}, includes resolved and placeholders filled."""
     own = os.path.join(template_dir, half)
     if not os.path.isdir(own):
-        raise TemplateRefused("the template folder %s has no %s/ folder" % (template_dir, half))
+        raise TemplateRefused(f"the template folder {template_dir} has no {half}/ folder")
     sources = [(rel, os.path.join(own, rel), half + "/" + rel) for rel in files_under(own)]
     for rel in ("inbox/README.md", "lobster.conf"):
         sources.append((rel, os.path.join(template_dir, "common", rel), "common/" + rel))
@@ -61,7 +61,7 @@ def render_half(template_dir, half, values, public):
         if half == "code" and rel == "tools.conf.example":
             rel = values["TOOLS"] + ".conf.example"
         if not os.path.isfile(path):
-            raise TemplateRefused("the template has no %s" % where)
+            raise TemplateRefused(f"the template has no {where}")
         with open(path, encoding="utf-8") as f:
             text = f.read()
         rendered[rel] = fill(resolve_includes(text, template_dir, values, where), values, where)
@@ -87,7 +87,7 @@ def values_for(name, half, model, effort, non_code_dir, code_dir, mail_root, lob
         "SISTER": tools if non_code else name,
         "KIND": half,
         "PACKAGE": tools.replace("-", ""),
-        "DATE": "%d %s %d" % (today.day, MONTHS[today.month - 1], today.year),
+        "DATE": f"{today.day} {MONTHS[today.month - 1]} {today.year}",
         "YEAR": str(today.year),
         "MODEL": model[:1].upper() + model[1:],
         "MODEL_SETTING": model,

@@ -42,14 +42,14 @@ def unquote(value):
 
 def check_effort(effort, where):
     if effort not in EFFORTS:
-        raise SettingsRefused("%s must be one of %s" % (where, ", ".join(EFFORTS)))
+        raise SettingsRefused("{} must be one of {}".format(where, ", ".join(EFFORTS)))
 
 
 def check_model(model, where):
     if model == "":
-        raise SettingsRefused("%s is empty" % where)
+        raise SettingsRefused(f"{where} is empty")
     if not re.fullmatch(r"[A-Za-z0-9.-]+", model):
-        raise SettingsRefused("%s must be one word, such as opus or sonnet" % where)
+        raise SettingsRefused(f"{where} must be one word, such as opus or sonnet")
 
 
 def read_settings(text, home):
@@ -60,15 +60,15 @@ def read_settings(text, home):
         if stripped == "" or stripped.startswith("#"):
             continue
         if "=" not in stripped:
-            raise SettingsRefused("line %d: not a KEY=value line: %s" % (number, stripped))
+            raise SettingsRefused(f"line {number}: not a KEY=value line: {stripped}")
         key, value = (part.strip() for part in stripped.split("=", 1))
         if key not in DEFAULTS:
-            raise SettingsRefused("line %d: unknown setting %s" % (number, key))
+            raise SettingsRefused(f"line {number}: unknown setting {key}")
         value = unquote(value)
         if key == "EFFORT":
-            check_effort(value, "line %d: EFFORT" % number)
+            check_effort(value, f"line {number}: EFFORT")
         if key == "MODEL":
-            check_model(value, "line %d: MODEL" % number)
+            check_model(value, f"line {number}: MODEL")
         found[key] = value
     for key in PATHS:
         found[key] = expand(found[key], home)
@@ -103,7 +103,7 @@ def options_for_new_lobster(argv, settings):
     try:
         check_name(a.name)
     except NameRefused as why:
-        raise SettingsRefused("the name %s cannot be used: %s" % (a.name, why))
+        raise SettingsRefused(f"the name {a.name} cannot be used: {why}")
     if a.effort is not None:
         check_effort(a.effort, "--effort")
     if a.model is not None:

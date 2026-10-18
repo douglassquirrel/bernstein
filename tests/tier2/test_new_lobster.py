@@ -4,14 +4,14 @@ from conftest import tree
 
 
 def test_help_describes_the_command_and_exits_0(world):
-    code, out, err = world.run("--help")
+    code, out, _err = world.run("--help")
     assert code == 0
     assert "usage: new-lobster" in out and "--dry-run" in out and "--public" in out
     assert world.calls() == []
 
 
 def test_a_bad_name_is_refused_with_exit_2_and_nothing_is_touched(world):
-    code, out, err = world.run("Recipes")
+    code, _out, err = world.run("Recipes")
     assert code == 2
     assert err == ("new-lobster: the name Recipes cannot be used: use only lower-case letters, "
                    "digits and hyphens (new-lobster --help shows the form)\n")
@@ -20,9 +20,9 @@ def test_a_bad_name_is_refused_with_exit_2_and_nothing_is_touched(world):
 
 def test_a_bad_settings_line_is_refused_with_exit_2_naming_the_file(world):
     world.write_conf("EFFORT=extreme\n")
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 2
-    assert err == "new-lobster: %s: line 7: EFFORT must be one of low, medium, high, xhigh, max\n" % world.conf
+    assert err == f"new-lobster: {world.conf}: line 7: EFFORT must be one of low, medium, high, xhigh, max\n"
 
 
 def test_an_existing_folder_is_refused_with_exit_3_and_left_exactly_as_it_was(world):
@@ -31,9 +31,9 @@ def test_an_existing_folder_is_refused_with_exit_3_and_left_exactly_as_it_was(wo
     with open(os.path.join(existing, "keep.txt"), "w") as f:
         f.write("mine\n")
     before = tree(world.code), tree(world.template)
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 3
-    assert err == "new-lobster: %s already exists; nothing was made\n" % existing
+    assert err == f"new-lobster: {existing} already exists; nothing was made\n"
     assert (tree(world.code), tree(world.template)) == before
     assert not os.path.exists(os.path.join(world.non_code, "recipes"))
     assert world.calls() == []
@@ -41,15 +41,15 @@ def test_an_existing_folder_is_refused_with_exit_3_and_left_exactly_as_it_was(wo
 
 def test_an_existing_mailbox_is_refused_with_exit_3(world):
     world.mailboxes(["recipes"])
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 3
-    assert err == "new-lobster: the mailbox recipes already exists in %s; nothing was made\n" % world.mail
+    assert err == f"new-lobster: the mailbox recipes already exists in {world.mail}; nothing was made\n"
     assert os.listdir(world.non_code) == []
 
 
 def test_a_folder_of_that_name_in_the_mail_root_counts_as_in_the_way(world):
     world.mailboxes([], skipped=["recipes-tools"])
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 3
     assert "the mailbox recipes-tools already exists" in err
 
@@ -57,14 +57,14 @@ def test_a_folder_of_that_name_in_the_mail_root_counts_as_in_the_way(world):
 def test_a_template_with_an_unknown_placeholder_is_refused_with_exit_4_before_anything_is_written(world):
     with open(os.path.join(world.template, "code", "PLAN.md"), "w") as f:
         f.write("{{WHO}}\n")
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 4
     assert err == "new-lobster: the template cannot be used: code/PLAN.md: unknown placeholder {{WHO}}\n"
     assert os.listdir(world.non_code) == [] and os.listdir(world.code) == []
 
 
 def test_a_missing_template_is_refused_with_exit_4(world):
-    code, out, err = world.run("--template", os.path.join(world.home, "nowhere"), "recipes")
+    code, _out, err = world.run("--template", os.path.join(world.home, "nowhere"), "recipes")
     assert code == 4
     assert "has no non-code/ folder" in err
 
@@ -84,7 +84,7 @@ def made(world, name="recipes"):
 
 
 def test_a_private_pair_is_made_with_both_folders_filled_in(world):
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 0, err
     nc, tools = made(world)
     nc_files, tools_files = tree(nc), tree(tools)
@@ -102,7 +102,7 @@ def test_a_private_pair_is_made_with_both_folders_filled_in(world):
 
 
 def test_the_programs_run_in_order_in_the_right_folders(world):
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 0, err
     nc, tools = made(world)
     lm = os.path.join(world.bin, "lobster-mail")
@@ -135,14 +135,14 @@ def test_the_programs_run_in_order_in_the_right_folders(world):
 
 
 def test_the_report_names_both_folders_and_gives_the_github_steps(world):
-    code, out, err = world.run("recipes")
+    _code, out, _err = world.run("recipes")
     nc, tools = made(world)
-    assert "Made recipes: %s" % nc in out
-    assert "Made recipes-tools: %s" % tools in out
-    assert "Mailboxes recipes and recipes-tools in %s" % world.mail in out
+    assert f"Made recipes: {nc}" in out
+    assert f"Made recipes-tools: {tools}" in out
+    assert f"Mailboxes recipes and recipes-tools in {world.mail}" in out
     assert "git@github.com:douglassquirrel/recipes.git" in out
     assert "git@github.com:douglassquirrel/recipes-tools.git" in out
-    assert "git -C '%s' push -u origin main" % nc in out
+    assert f"git -C '{nc}' push -u origin main" in out
     assert "(private)" in out
 
 
@@ -167,11 +167,11 @@ def test_a_public_tools_project_gets_the_outer_folder_with_the_checkout_inside(w
 
 def test_a_failing_program_stops_with_exit_5_saying_what_failed_and_what_was_made(world):
     world.fail("backlog")
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 5
     nc, tools = made(world)
-    assert err.startswith("new-lobster: backlog init recipes failed (exit 1) in %s\n" % nc)
-    assert "Already made, and left as it is: %s, %s" % (nc, tools) in err
+    assert err.startswith(f"new-lobster: backlog init recipes failed (exit 1) in {nc}\n")
+    assert f"Already made, and left as it is: {nc}, {tools}" in err
     assert os.path.isfile(os.path.join(nc, "CLAUDE.md"))
     assert [c["prog"] for c in world.calls()][-1] == "backlog"
 
@@ -191,7 +191,7 @@ def test_model_and_effort_come_from_the_settings_or_the_flags(world):
 
 def test_without_a_settings_file_the_defaults_are_used_and_a_missing_lobster_mail_is_a_plain_error(world):
     os.remove(world.conf)
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 5
     assert err.startswith("new-lobster: lobster-mail duty status --all could not be run in ")
     assert "Traceback" not in err
@@ -201,14 +201,14 @@ def test_without_a_settings_file_the_defaults_are_used_and_a_missing_lobster_mai
 def test_unexpected_output_from_the_mailbox_listing_is_a_plain_error(world):
     with open(os.path.join(world.bin, "duty.json"), "w") as f:
         f.write("not json")
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 5
     assert err == "new-lobster: lobster-mail duty status --all --json did not print the expected JSON\n"
 
 
 def test_a_template_without_a_common_file_is_refused_with_exit_4(world):
     os.remove(os.path.join(world.template, "common", "lobster.conf"))
-    code, out, err = world.run("recipes")
+    code, _out, err = world.run("recipes")
     assert code == 4
     assert err == "new-lobster: the template cannot be used: the template has no common/lobster.conf\n"
 
@@ -218,7 +218,7 @@ def test_the_command_file_runs_as_a_program(tmp_path):
     import sys
     here = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     done = subprocess.run([sys.executable, os.path.join(here, "new-lobster"), "--help"],
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+                          capture_output=True, text=True, check=False,
                           env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"})
     assert done.returncode == 0, done.stderr
     assert done.stdout.startswith("usage: new-lobster")
@@ -231,12 +231,12 @@ def test_paths_with_quotes_dollars_and_non_ascii_letters_are_data_never_code(wor
     assert code == 0, err
     tools = os.path.join(odd, "recipes-tools")
     assert os.path.isfile(os.path.join(tools, "CLAUDE.md"))
-    assert "git -C '%s' push -u origin main" % tools.replace("'", "'\"'\"'") in out
+    assert "git -C '{}' push -u origin main".format(tools.replace("'", "'\"'\"'")) in out
     assert {c["cwd"] for c in world.calls() if c["prog"] == "git"} >= {tools}
 
 
 def test_no_name_or_an_unknown_flag_is_refused_with_exit_2(world):
-    assert world.run() == (2, "", "new-lobster: the following arguments are required: name "
-                                  "(new-lobster --help shows the form)\n")
-    code, out, err = world.run("--colour", "recipes")
+    assert world.run() == (2, "", ("new-lobster: the following arguments are required: name "
+                                  "(new-lobster --help shows the form)\n"))
+    code, _out, err = world.run("--colour", "recipes")
     assert code == 2 and err == "new-lobster: unrecognized arguments: --colour (new-lobster --help shows the form)\n"

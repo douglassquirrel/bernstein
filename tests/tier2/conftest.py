@@ -100,8 +100,7 @@ class World:
 
     def write_conf(self, extra):
         with open(self.conf, "w") as f:
-            f.write("TEMPLATE=%s\nNON_CODE_DIR=%s\nCODE_DIR=%s\nMAIL_ROOT=%s\nLOBSTER_MAIL=%s\nPYTHON=%s\n%s"
-                    % (self.template, self.non_code, self.code, self.mail,
+            f.write("TEMPLATE={}\nNON_CODE_DIR={}\nCODE_DIR={}\nMAIL_ROOT={}\nLOBSTER_MAIL={}\nPYTHON={}\n{}".format(self.template, self.non_code, self.code, self.mail,
                        os.path.join(self.bin, "lobster-mail"), os.path.join(self.bin, "python3"), extra))
 
     def fail(self, *progs):
