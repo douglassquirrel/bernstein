@@ -104,9 +104,12 @@ def link_for(project, mail_root, lobster_tools):
         folders = [project.folder, mail_root] + ([project.sister_checkout] if project.sister_checkout else [])
         folders.append(lobster_tools)
         q = (f"Read START-HERE.txt in the {project.name} folder (mounted at ~/mnt/{project.name}) and do "
-             "what it says, starting with its step 0 before anything else.")
+             f"what it says, starting with its step 0 before anything else. If ~/mnt/{project.name} is not "
+             f"there, say \"the app opened me without the {project.name} folder\" and stop.")
         return "claude://cowork/new?" + encode([("folder", f) for f in folders] + [("q", q)])
-    q = "Read START-HERE.txt in this folder and do what it says, starting with its step 0 before anything else."
+    q = (f"This session must work in {project.folder}. If your working folder is anything else, say \"the app "
+         "opened me in the wrong folder\" and stop. Otherwise read START-HERE.txt there and do what it says, "
+         "starting with its step 0 before anything else.")
     return "claude://code/new?" + encode([("folder", project.folder), ("q", q)])
 
 

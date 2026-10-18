@@ -1,11 +1,16 @@
 import datetime
 import os
+from urllib.parse import quote as urlquote
 
 import pytest
 
 from bernstein.conduct import ProjectRefused, find_project, link_for, start_message, stop_message
 
 DAY = datetime.date(2026, 10, 18)
+
+
+def quote(text):
+    return urlquote(text, safe="")
 
 
 def test_the_start_message_points_to_start_here_and_waits_without_a_brief():
@@ -75,14 +80,16 @@ def test_the_link_for_a_non_code_project_connects_its_four_folders(tmp_path):
     enc = lambda s: s.replace("/", "%2F")
     assert link == ("claude://cowork/new?folder=" + enc(p.folder) + "&folder=%2Fm%2Fmail"
                     "&folder=" + enc(p.sister_checkout) + "&folder=%2Fl%2Flobster-tools"
-                    "&q=Read%20START-HERE.txt%20in%20the%20recipes%20folder%20%28mounted%20at%20~%2Fmnt%2Frecipes%29"
-                    "%20and%20do%20what%20it%20says%2C%20starting%20with%20its%20step%200%20before%20anything%20else.")
+                    "&q=" + quote("Read START-HERE.txt in the recipes folder (mounted at ~/mnt/recipes) and do "
+                                  "what it says, starting with its step 0 before anything else. If ~/mnt/recipes "
+                                  "is not there, say \"the app opened me without the recipes folder\" and stop."))
 
 
 def test_the_link_for_a_tools_project_opens_claude_code_in_its_folder(tmp_path):
     make(tmp_path, "code/recipes-tools", "code", "recipes")
     q = find_project("recipes-tools", str(tmp_path / "non-code"), str(tmp_path / "code"))
     assert link_for(q, "/m/mail", "/l/lobster-tools") == (
-        "claude://code/new?folder=" + q.folder.replace("/", "%2F") +
-        "&q=Read%20START-HERE.txt%20in%20this%20folder%20and%20do%20what%20it%20says%2C%20starting%20with"
-        "%20its%20step%200%20before%20anything%20else.")
+        "claude://code/new?folder=" + quote(q.folder) + "&q=" + quote(
+            "This session must work in " + q.folder + ". If your working folder is anything else, say \"the app "
+            "opened me in the wrong folder\" and stop. Otherwise read START-HERE.txt there and do what it says, "
+            "starting with its step 0 before anything else."))
