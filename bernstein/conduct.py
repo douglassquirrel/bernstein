@@ -85,10 +85,30 @@ def find_project(name, non_code_dir, code_dir):
     conf = os.path.join(folder, "lobster.conf")
     if not os.path.isfile(conf):
         raise ProjectRefused(f"{folder} has no lobster.conf: is it a lobster project?")
-    settings = read_conf_file(conf)
+    try:
+        settings = read_conf_file(conf)
+    except UnicodeDecodeError:
+        raise ProjectRefused(f"{conf} is not plain UTF-8 text: save it again as UTF-8")
+    except OSError as why:
+        raise ProjectRefused(f"{conf} cannot be read ({why.strerror}): check its permissions")
     kind = settings.get("KIND", "code" if name.endswith("-tools") else "non-code")
+    if kind not in ("code", "non-code"):
+        raise ProjectRefused(f"{conf} says KIND={kind}: it must be code or non-code")
+    if not os.path.isfile(os.path.join(folder, "START-HERE.txt")):
+        raise ProjectRefused(f"{folder} has no START-HERE.txt, which the session is told to follow: "
+                             "bring the project into line with the lobster template first")
+    for key, example in (("MODEL", "opus"), ("EFFORT", "high")):
+        if not settings.get(key):
+            raise ProjectRefused(f"{conf} has no {key}, which START-HERE.txt step 0 reads: "
+                                 f"add a line such as {key}={example}")
     sister = settings.get("SISTER", "")
-    sister_checkout = tools_folders(sister, code_dir)[1] if kind == "non-code" and sister else None
+    if kind == "non-code" and not sister:
+        raise ProjectRefused(f"{conf} has no SISTER, the tools project a non-code session works with: "
+                             f"add a line such as SISTER={name}-tools")
+    sister_checkout = tools_folders(sister, code_dir)[1] if kind == "non-code" else None
+    if sister_checkout and not os.path.isdir(sister_checkout):
+        raise ProjectRefused(f"the sister tools project {sister} is not at {sister_checkout}: "
+                             f"make it, or correct SISTER in {conf}")
     return SimpleNamespace(name=name, kind=kind, folder=folder, checkout=checkout, sister=sister,
                            sister_checkout=sister_checkout, model=settings.get("MODEL", ""),
                            effort=settings.get("EFFORT", ""))

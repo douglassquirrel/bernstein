@@ -39,7 +39,8 @@ def test_the_stop_message_asks_for_a_handover_at_a_safe_point():
 def make(tmp_path, rel, kind, sister):
     folder = tmp_path / rel
     folder.mkdir(parents=True)
-    (folder / "lobster.conf").write_text(f"KIND={kind}\nSISTER={sister}\n")
+    (folder / "lobster.conf").write_text(f"KIND={kind}\nSISTER={sister}\nMODEL=opus\nEFFORT=high\n")
+    (folder / "START-HERE.txt").write_text("Start.\n")
     return str(folder)
 
 

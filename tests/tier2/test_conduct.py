@@ -29,6 +29,7 @@ def test_start_refuses_an_unknown_project_with_exit_3(world):
 
 def test_start_refuses_a_project_without_a_mailbox_with_exit_3(world):
     world.project("recipes", "non-code")
+    world.project("recipes-tools", "code")
     world.duty({})
     code, _out, err = world.conduct("start", "recipes")
     assert code == 3 and err == f"conduct: there is no mailbox recipes in {world.mail}\n"
@@ -36,6 +37,7 @@ def test_start_refuses_a_project_without_a_mailbox_with_exit_3(world):
 
 def test_start_refuses_when_a_session_is_already_on_duty_and_sends_nothing(world):
     world.project("recipes", "non-code")
+    world.project("recipes-tools", "code")
     world.duty({"recipes": "fresh"})
     code, _out, err = world.conduct("start", "recipes")
     assert code == 3
@@ -103,6 +105,7 @@ def test_start_dry_run_shows_the_message_and_link_and_sends_and_opens_nothing(wo
 
 def test_a_duty_caught_changing_is_looked_at_again_then_refused_with_exit_4(world):
     world.project("recipes", "non-code")
+    world.project("recipes-tools", "code")
     world.duty({"recipes": "changing"})
     waits = []
     code, _out, err = world.conduct("start", "recipes", sleep=waits.append)
@@ -215,3 +218,74 @@ def test_an_unreadable_listing_or_a_missing_lobster_mail_is_exit_4(world):
     os.remove(os.path.join(world.bin, "lobster-mail"))
     code, _out, err = world.conduct("stop", "--all")
     assert code == 4 and err.startswith("conduct: lobster-mail duty status --all could not be run")
+
+
+def refused(world, project):
+    """Run conduct start on a project the duty listing knows; return (code, err) and check nothing went out."""
+    world.duty({project: None})
+    code, _out, err = world.conduct("start", project)
+    assert sent(world) == [] and opened(world) == []
+    return code, err
+
+
+def test_start_refuses_a_lobster_conf_that_is_not_utf8_or_cannot_be_read(world):
+    folder = world.project("recipes-tools", "code")
+    conf = os.path.join(folder, "lobster.conf")
+    with open(conf, "wb") as f:
+        f.write(b"KIND=code\nMODEL=opus\xff\nEFFORT=high\n")
+    assert refused(world, "recipes-tools") == (3, f"conduct: {conf} is not plain UTF-8 text: save it again as UTF-8\n")
+    os.chmod(conf, 0)
+    try:
+        assert refused(world, "recipes-tools") == (
+            3, f"conduct: {conf} cannot be read (Permission denied): check its permissions\n")
+    finally:
+        os.chmod(conf, 0o644)
+
+
+def test_start_refuses_a_kind_that_is_neither_code_nor_non_code(world):
+    folder = world.project("recipes-tools", "code")
+    conf = os.path.join(folder, "lobster.conf")
+    with open(conf, "w") as f:
+        f.write("KIND=weird\nMODEL=opus\nEFFORT=high\n")
+    assert refused(world, "recipes-tools") == (
+        3, f"conduct: {conf} says KIND=weird: it must be code or non-code\n")
+
+
+def test_start_refuses_a_project_with_no_start_here(world):
+    folder = world.project("recipes-tools", "code")
+    os.remove(os.path.join(folder, "START-HERE.txt"))
+    assert refused(world, "recipes-tools") == (
+        3, (f"conduct: {folder} has no START-HERE.txt, which the session is told to follow: "
+            "bring the project into line with the lobster template first\n"))
+
+
+def test_start_refuses_a_project_whose_lobster_conf_lacks_model_or_effort(world):
+    tools = world.project("recipes-tools", "code")
+    conf = os.path.join(tools, "lobster.conf")
+    with open(conf, "w") as f:
+        f.write("KIND=code\nSISTER=recipes\nMODEL=\nEFFORT=high\n")
+    assert refused(world, "recipes-tools") == (
+        3, f"conduct: {conf} has no MODEL, which START-HERE.txt step 0 reads: add a line such as MODEL=opus\n")
+    nc = world.project("recipes", "non-code")
+    conf = os.path.join(nc, "lobster.conf")
+    with open(conf, "w") as f:
+        f.write("KIND=non-code\nSISTER=recipes-tools\nMODEL=opus\n")
+    assert refused(world, "recipes") == (
+        3, f"conduct: {conf} has no EFFORT, which START-HERE.txt step 0 reads: add a line such as EFFORT=high\n")
+
+
+def test_start_refuses_a_non_code_project_that_names_no_sister(world):
+    nc = world.project("recipes", "non-code")
+    conf = os.path.join(nc, "lobster.conf")
+    with open(conf, "w") as f:
+        f.write("KIND=non-code\nMODEL=opus\nEFFORT=high\n")
+    assert refused(world, "recipes") == (
+        3, (f"conduct: {conf} has no SISTER, the tools project a non-code session works with: "
+            "add a line such as SISTER=recipes-tools\n"))
+
+
+def test_start_refuses_a_non_code_project_whose_sister_checkout_is_missing(world):
+    world.project("recipes", "non-code")
+    assert refused(world, "recipes") == (
+        3, "conduct: the sister tools project recipes-tools is not at {}: make it, or correct SISTER in {}\n".format(
+            os.path.join(world.code, "recipes-tools"), os.path.join(world.non_code, "recipes", "lobster.conf")))

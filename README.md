@@ -128,6 +128,13 @@ says to act on bernstein's mail at once. It reads who is on duty with `lobster-m
   seconds.
 - **`--dry-run`** shows the message and the link, and sends and opens nothing.
 
+`start` checks the project before it sends or opens anything, and refuses (exit 3) with a message
+saying what to fix when any part a lobster project has is missing: the folder (`<CODE_DIR>/<name>`
+or `<CODE_DIR>/<name>-code` for a tools project, `<NON_CODE_DIR>/<name>` otherwise), a
+`lobster.conf` it can read as UTF-8 text, a KIND of `code` or `non-code`, `START-HERE.txt`, MODEL
+and EFFORT lines, and, for a non-code project, a SISTER line naming a tools project that exists.
+A project made before the lobster template needs these before `conduct` can start it.
+
 A session sees mail at its own pace: at once when eager, at the next pause when normal, only at
 the end of a turn when relaxed. So a Stop to a relaxed session waits until you next talk to it.
 
@@ -135,7 +142,7 @@ the end of a turn when relaxed. So a Stop to a relaxed session waits until you n
 |---|---|
 | 0 | Sent (and, with `--wait`, handed over); or, for `stop`, nobody on duty |
 | 2 | Bad arguments or settings |
-| 3 | No such project or mailbox; or, for `start`, a session is already on duty |
+| 3 | No such project or mailbox, or the project lacks a part `start` needs; or, for `start`, a session is already on duty |
 | 4 | A program failed, or the duty listing could not be read |
 | 5 | `--wait` ran out before the handover arrived |
 
@@ -178,6 +185,9 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
 ## Notes for users
 
 - 18 October 2026: first versions of `new-lobster` and `conduct`.
+- 18 October 2026: `conduct start` now refuses, sending and opening nothing, a project that lacks
+  `START-HERE.txt`, a readable `lobster.conf`, a known KIND, MODEL or EFFORT, or (non-code) its
+  sister tools project, instead of starting it or failing with a traceback.
 
 ## Contributing
 

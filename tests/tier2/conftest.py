@@ -138,6 +138,8 @@ class World:
         os.makedirs(os.path.join(folder, name) if public else folder, exist_ok=True)
         with open(os.path.join(folder, "lobster.conf"), "w") as f:
             f.write(f"KIND={kind}\nSELF={name}\nSISTER={sister}\nMODEL=opus\nEFFORT=high\n")
+        with open(os.path.join(folder, "START-HERE.txt"), "w") as f:
+            f.write(f"Start {name}.\n")
         return folder
 
     def conduct(self, *argv, sleep=None):
