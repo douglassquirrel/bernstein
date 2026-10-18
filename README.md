@@ -130,7 +130,9 @@ says to act on bernstein's mail at once. It reads who is on duty with `lobster-m
 
 `start` checks the project before it sends or opens anything, and refuses (exit 3) with a message
 saying what to fix when any part a lobster project has is missing: the folder (`<CODE_DIR>/<name>`
-or `<CODE_DIR>/<name>-code` for a tools project, `<NON_CODE_DIR>/<name>` otherwise), a
+or `<CODE_DIR>/<name>-code` for a tools project, `<NON_CODE_DIR>/<name>` otherwise, or the same one
+level down, in a subfolder that keeps related projects together, such as `~/projects/code/videos/`;
+one directly in the folder wins, and the same name in two subfolders is refused), a
 `lobster.conf` it can read as UTF-8 text, a KIND of `code` or `non-code`, `START-HERE.txt`, MODEL
 and EFFORT lines, and, for a non-code project, a SISTER line naming a tools project that exists.
 A project made before the lobster template needs these before `conduct` can start it.
@@ -188,6 +190,8 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
 - 18 October 2026: `conduct start` now refuses, sending and opening nothing, a project that lacks
   `START-HERE.txt`, a readable `lobster.conf`, a known KIND, MODEL or EFFORT, or (non-code) its
   sister tools project, instead of starting it or failing with a traceback.
+- 18 October 2026: `conduct` also finds a project, and a non-code project's sister, one subfolder down
+  (`~/projects/code/videos/video-tools`), so related projects can be kept together.
 
 ## Contributing
 

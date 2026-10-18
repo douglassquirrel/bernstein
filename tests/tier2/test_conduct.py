@@ -24,7 +24,7 @@ def test_start_refuses_an_unknown_project_with_exit_3(world):
     world.duty({})
     code, _out, err = world.conduct("start", "recipes")
     assert code == 3
-    assert err == "conduct: no project recipes: {} does not exist\n".format(os.path.join(world.non_code, "recipes"))
+    assert err == f"conduct: no project recipes in {world.non_code} or a folder directly inside it\n"
 
 
 def test_start_refuses_a_project_without_a_mailbox_with_exit_3(world):
@@ -287,5 +287,43 @@ def test_start_refuses_a_non_code_project_that_names_no_sister(world):
 def test_start_refuses_a_non_code_project_whose_sister_checkout_is_missing(world):
     world.project("recipes", "non-code")
     assert refused(world, "recipes") == (
-        3, "conduct: the sister tools project recipes-tools is not at {}: make it, or correct SISTER in {}\n".format(
-            os.path.join(world.code, "recipes-tools"), os.path.join(world.non_code, "recipes", "lobster.conf")))
+        3, "conduct: the sister tools project recipes-tools is not in {} or a folder directly inside it: "
+           "make it, or correct SISTER in {}\n".format(world.code, os.path.join(world.non_code, "recipes", "lobster.conf")))
+
+
+def link_folder(out):
+    """The first folder= in the link a dry run prints."""
+    from urllib.parse import parse_qs, urlsplit
+    link = next(line.strip() for line in out.splitlines() if line.strip().startswith("claude://"))
+    return parse_qs(urlsplit(link).query)["folder"]
+
+
+def test_start_finds_a_tools_project_in_a_subfolder_of_the_code_folder(world):
+    plain = world.project("fish-tools", "code", under="kitchen")
+    public = world.project("bread-tools", "code", public=True, under="bakery")
+    world.duty({"fish-tools": None, "bread-tools": None})
+    code, out, err = world.conduct("start", "--dry-run", "fish-tools")
+    assert (code, err) == (0, "") and link_folder(out) == [plain]
+    code, out, err = world.conduct("start", "--dry-run", "bread-tools")
+    assert (code, err) == (0, "") and link_folder(out) == [public]
+
+
+def test_start_finds_a_non_code_project_and_its_sister_in_subfolders(world):
+    nc = world.project("training", "non-code", under="videos")
+    outer = world.project("training-tools", "code", public=True, under="videos")
+    world.duty({"training": None})
+    code, out, err = world.conduct("start", "--dry-run", "training")
+    assert (code, err) == (0, "")
+    assert link_folder(out) == [nc, world.mail, os.path.join(outer, "training-tools"),
+                                os.path.dirname(os.path.join(world.bin, "lobster-mail"))]
+
+
+def test_start_refuses_a_name_found_in_two_subfolders_and_prefers_one_directly_in_the_folder(world):
+    a = world.project("fish-tools", "code", under="kitchen")
+    b = world.project("fish-tools", "code", public=True, under="sea")
+    assert refused(world, "fish-tools") == (
+        3, f"conduct: fish-tools is in two places, {a} and {b}: keep one, or rename the other\n")
+    direct = world.project("fish-tools", "code")
+    world.duty({"fish-tools": None})
+    code, out, err = world.conduct("start", "--dry-run", "fish-tools")
+    assert (code, err) == (0, "") and link_folder(out) == [direct]

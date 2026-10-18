@@ -65,13 +65,47 @@ def read_conf_file(path):
     return found
 
 
-def tools_folders(name, code_dir):
-    """(folder holding START-HERE.txt and lobster.conf, checkout) for a tools project."""
-    outer = os.path.join(code_dir, name + "-code")
+def subfolders(base):
+    """The folders directly inside base, by name, leaving out hidden ones."""
+    try:
+        names = sorted(os.listdir(base))
+    except OSError:
+        return []
+    return [os.path.join(base, n) for n in names if not n.startswith(".") and os.path.isdir(os.path.join(base, n))]
+
+
+def tools_folders_in(name, base):
+    """(folder holding START-HERE.txt and lobster.conf, checkout) for a tools project in base, or None."""
+    outer = os.path.join(base, name + "-code")
     if os.path.isdir(outer):
         return outer, os.path.join(outer, name)
+    plain = os.path.join(base, name)
+    return (plain, plain) if os.path.isdir(plain) else None
+
+
+def non_code_folder_in(name, base):
+    folder = os.path.join(base, name)
+    return folder if os.path.isdir(folder) else None
+
+
+def locate(name, base, found_in):
+    """What found_in finds directly in base, else in the one subfolder holding it; None if none."""
+    direct = found_in(name, base)
+    if direct:
+        return direct
+    found = [f for f in (found_in(name, d) for d in subfolders(base)) if f]
+    if len(found) > 1:
+        places = [f[0] if isinstance(f, tuple) else f for f in found]
+        count = {2: "two", 3: "three"}.get(len(places), str(len(places)))
+        raise ProjectRefused(f"{name} is in {count} places, {', '.join(places[:-1])} and {places[-1]}: "
+                             "keep one, or rename the other")
+    return found[0] if found else None
+
+
+def tools_folders(name, code_dir):
+    """(folder, checkout) for a tools project in code_dir or one of its subfolders; where it would be if neither."""
     plain = os.path.join(code_dir, name)
-    return plain, plain
+    return locate(name, code_dir, tools_folders_in) or (plain, plain)
 
 
 def find_project(name, non_code_dir, code_dir):
@@ -79,9 +113,10 @@ def find_project(name, non_code_dir, code_dir):
     if name.endswith("-tools"):
         folder, checkout = tools_folders(name, code_dir)
     else:
-        folder = checkout = os.path.join(non_code_dir, name)
+        folder = checkout = locate(name, non_code_dir, non_code_folder_in) or os.path.join(non_code_dir, name)
     if not os.path.isdir(folder):
-        raise ProjectRefused(f"no project {name}: {folder} does not exist")
+        base = code_dir if name.endswith("-tools") else non_code_dir
+        raise ProjectRefused(f"no project {name} in {base} or a folder directly inside it")
     conf = os.path.join(folder, "lobster.conf")
     if not os.path.isfile(conf):
         raise ProjectRefused(f"{folder} has no lobster.conf: is it a lobster project?")
@@ -107,8 +142,8 @@ def find_project(name, non_code_dir, code_dir):
                              f"add a line such as SISTER={name}-tools")
     sister_checkout = tools_folders(sister, code_dir)[1] if kind == "non-code" else None
     if sister_checkout and not os.path.isdir(sister_checkout):
-        raise ProjectRefused(f"the sister tools project {sister} is not at {sister_checkout}: "
-                             f"make it, or correct SISTER in {conf}")
+        raise ProjectRefused(f"the sister tools project {sister} is not in {code_dir} or a folder directly "
+                             f"inside it: make it, or correct SISTER in {conf}")
     return SimpleNamespace(name=name, kind=kind, folder=folder, checkout=checkout, sister=sister,
                            sister_checkout=sister_checkout, model=settings.get("MODEL", ""),
                            effort=settings.get("EFFORT", ""))

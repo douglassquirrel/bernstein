@@ -128,13 +128,14 @@ class World:
         with open(os.path.join(self.bin, "duty.json"), "w") as f:
             json.dump({"root": self.mail, "mailboxes": listing, "skipped": []}, f)
 
-    def project(self, name, kind, public=False):
-        """A project folder with its lobster.conf, as new-lobster makes it."""
+    def project(self, name, kind, public=False, under="", sister=None):
+        """A project folder with its lobster.conf, as new-lobster makes it, perhaps in a subfolder."""
         if kind == "non-code":
-            folder, sister = os.path.join(self.non_code, name), name + "-tools"
+            folder, sister = os.path.join(self.non_code, under, name), sister or name + "-tools"
         else:
-            sister = name[: -len("-tools")]
-            folder = os.path.join(self.code, name + "-code") if public else os.path.join(self.code, name)
+            sister = sister or name[: -len("-tools")]
+            base = os.path.join(self.code, under)
+            folder = os.path.join(base, name + "-code") if public else os.path.join(base, name)
         os.makedirs(os.path.join(folder, name) if public else folder, exist_ok=True)
         with open(os.path.join(folder, "lobster.conf"), "w") as f:
             f.write(f"KIND={kind}\nSELF={name}\nSISTER={sister}\nMODEL=opus\nEFFORT=high\n")

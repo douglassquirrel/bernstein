@@ -66,7 +66,7 @@ def test_find_project_for_a_public_tools_project(tmp_path):
 def test_find_project_refuses_a_project_with_no_folder_or_no_settings(tmp_path):
     with pytest.raises(ProjectRefused) as refused:
         find_project("nope", str(tmp_path / "non-code"), str(tmp_path / "code"))
-    assert str(refused.value) == "no project nope: %s does not exist" % (tmp_path / "non-code" / "nope")
+    assert str(refused.value) == "no project nope in %s or a folder directly inside it" % (tmp_path / "non-code")
     os.makedirs(tmp_path / "non-code" / "bare")
     with pytest.raises(ProjectRefused) as refused:
         find_project("bare", str(tmp_path / "non-code"), str(tmp_path / "code"))
