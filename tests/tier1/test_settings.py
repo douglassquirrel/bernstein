@@ -71,3 +71,7 @@ def test_refuses_a_bad_name_with_the_rule():
     with pytest.raises(SettingsRefused) as refused:
         options_for_new_lobster(["Recipes"], read_settings("", HOME))
     assert str(refused.value) == "the name Recipes cannot be used: use only lower-case letters, digits and hyphens"
+
+
+def test_an_absolute_path_is_kept_as_it_is():
+    assert read_settings("CODE_DIR=/srv/code\n", HOME)["CODE_DIR"] == "/srv/code"
