@@ -79,6 +79,21 @@ repository on `main` with a first commit and Backlog (ids `RE-001` on); the mail
 `recipes-tools`; and the tools project's `.venv` with its dev tooling. It never writes over
 anything, never changes the template, never deletes, and never touches GitHub.
 
+**Bringing an existing pair into line.** `new-lobster --render-into DIR [--tools NAME]
+[--non-code-path DIR] [--tools-path DIR] [--public] [--dry-run] <name>` renders the template for a pair
+that already exists, with its own names and folders, into `DIR/non-code/` and `DIR/code/` (the code
+half in one folder, even when public), for you to merge by hand. It writes nothing else: no project
+folder, repository, Backlog or mailbox, and runs no program. `--tools` is the tools project's name
+(default `<name>-tools`; it must end in `-tools`); the two paths default to where `new-lobster` would
+put the pair. `DIR` must not exist (exit 3). With `--dry-run` it lists the files and writes nothing.
+`--tools`, `--non-code-path` and `--tools-path` need `--render-into` (exit 2). For example:
+
+```
+new-lobster --render-into /tmp/tv --tools video-tools --public \
+    --non-code-path ~/projects/non-code/videos/training-video \
+    --tools-path ~/projects/code/videos/video-tools-code/video-tools training-video
+```
+
 ### Settings
 
 `~/.bernstein.conf` (or the file named by `BERNSTEIN_CONF`): `KEY=value` lines, `#` comments,
@@ -192,6 +207,8 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
   sister tools project, instead of starting it or failing with a traceback.
 - 18 October 2026: `conduct` also finds a project, and a non-code project's sister, one subfolder down
   (`~/projects/code/videos/video-tools`), so related projects can be kept together.
+- 18 October 2026: `new-lobster --render-into` renders the template for an existing pair into a new folder,
+  for bringing it into line by hand.
 
 ## Contributing
 

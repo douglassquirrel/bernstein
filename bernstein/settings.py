@@ -94,6 +94,11 @@ def parser_for_new_lobster():
     p.add_argument("--code-dir", metavar="DIR", help="where code projects go (setting CODE_DIR)")
     p.add_argument("--model", help="the model sessions must run on (setting MODEL)")
     p.add_argument("--effort", help="the effort sessions must run at (setting EFFORT)")
+    p.add_argument("--render-into", metavar="DIR", help="only render the template for the pair into DIR, "
+                   "a new folder, for bringing an existing pair into line; make nothing else")
+    p.add_argument("--tools", metavar="NAME", help="with --render-into: the tools project's name (default <name>-tools)")
+    p.add_argument("--non-code-path", metavar="DIR", help="with --render-into: where the non-code project is")
+    p.add_argument("--tools-path", metavar="DIR", help="with --render-into: where the tools checkout is")
     return p
 
 
@@ -104,6 +109,16 @@ def options_for_new_lobster(argv, settings):
         check_name(a.name)
     except NameRefused as why:
         raise SettingsRefused(f"the name {a.name} cannot be used: {why}")
+    for flag, value in (("--tools", a.tools), ("--non-code-path", a.non_code_path), ("--tools-path", a.tools_path)):
+        if value is not None and a.render_into is None:
+            raise SettingsRefused(f"{flag} needs --render-into")
+    if a.tools is not None:
+        if not a.tools.endswith("-tools"):
+            raise SettingsRefused(f"the tools name {a.tools} must end in -tools")
+        try:
+            check_name(a.tools[: -len("-tools")])
+        except NameRefused as why:
+            raise SettingsRefused(f"the tools name {a.tools} cannot be used: {why}")
     if a.effort is not None:
         check_effort(a.effort, "--effort")
     if a.model is not None:
@@ -120,4 +135,8 @@ def options_for_new_lobster(argv, settings):
         lobster_mail=settings["LOBSTER_MAIL"],
         mail_root=settings["MAIL_ROOT"],
         python=settings["PYTHON"],
+        render_into=a.render_into,
+        tools=a.tools,
+        non_code_path=a.non_code_path,
+        tools_path=a.tools_path,
     )

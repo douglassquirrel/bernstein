@@ -240,3 +240,76 @@ def test_no_name_or_an_unknown_flag_is_refused_with_exit_2(world):
                                   "(new-lobster --help shows the form)\n"))
     code, _out, err = world.run("--colour", "recipes")
     assert code == 2 and err == "new-lobster: unrecognized arguments: --colour (new-lobster --help shows the form)\n"
+
+
+def test_render_into_writes_both_halves_into_the_folder_and_nothing_else(world, tmp_path):
+    out_dir = str(tmp_path / "rendered")
+    code, out, err = world.run("--render-into", out_dir, "recipes")
+    assert (code, err) == (0, "")
+    files = tree(out_dir)
+    assert files["non-code/START-HERE.txt"] == b"Start recipes on 18 October 2026.\n"
+    assert files["code/CLAUDE.md"] == b"# recipes-tools\nrecipes-tools is private.\n"
+    assert files["code/recipes-tools.conf.example"] == b"# ~/.recipes-tools.conf\n"
+    assert sorted(files) == sorted(["non-code/CLAUDE.md", "non-code/START-HERE.txt", "non-code/.gitignore",
+                                    "non-code/inbox/README.md", "non-code/lobster.conf", "code/CLAUDE.md",
+                                    "code/START-HERE.txt", "code/PLAN.md", "code/pyproject.toml",
+                                    "code/requirements-dev.txt", "code/recipes-tools.conf.example",
+                                    "code/inbox/README.md", "code/lobster.conf"])
+    assert world.calls() == [] and os.listdir(world.non_code) == [] and os.listdir(world.code) == []
+    assert out == f"Rendered the template for recipes and recipes-tools into {out_dir}: 13 files. Nothing else was written.\n"
+
+
+def test_render_into_refuses_a_folder_that_exists_and_leaves_it_as_it_was(world, tmp_path):
+    out_dir = tmp_path / "rendered"
+    out_dir.mkdir()
+    (out_dir / "keep.txt").write_text("mine\n")
+    code, out, err = world.run("--render-into", str(out_dir), "recipes")
+    assert (code, out, err) == (3, "", f"new-lobster: {out_dir} already exists; nothing was written\n")
+    assert tree(str(out_dir)) == {"keep.txt": b"mine\n"}
+
+
+def test_render_into_takes_the_pairs_own_tools_name_and_folders(world, tmp_path):
+    with open(os.path.join(world.template, "non-code", "paths.txt"), "w") as f:
+        f.write("{{SISTER}} at {{TOOLS_PATH}}; {{NAME}} at {{NONCODE_PATH}}\n")
+    out_dir = str(tmp_path / "rendered")
+    nc = os.path.join(world.home, "projects", "non-code", "videos", "training-video")
+    tools = os.path.join(world.home, "projects", "code", "videos", "video-tools-code", "video-tools")
+    code, _out, err = world.run("--render-into", out_dir, "--tools", "video-tools", "--non-code-path", nc,
+                                "--tools-path", tools, "--public", "training-video")
+    assert (code, err) == (0, "")
+    files = tree(out_dir)
+    assert files["non-code/paths.txt"] == (b"video-tools at ~/projects/code/videos/video-tools-code/video-tools; "
+                                           b"training-video at ~/projects/non-code/videos/training-video\n")
+    assert files["code/CLAUDE.md"] == b"# video-tools\nvideo-tools is public.\n"
+    assert "code/video-tools.conf.example" in files and "code/LICENSE" in files
+
+
+def test_render_into_refuses_a_bad_tools_name_and_the_pair_flags_alone(world, tmp_path):
+    out_dir = str(tmp_path / "rendered")
+    code, _out, err = world.run("--render-into", out_dir, "--tools", "videos", "training-video")
+    assert (code, err) == (2, "new-lobster: the tools name videos must end in -tools (new-lobster --help shows the form)\n")
+    code, _out, err = world.run("--render-into", out_dir, "--tools", "Bad Name-tools", "training-video")
+    assert code == 2 and err.startswith("new-lobster: the tools name Bad Name-tools cannot be used: ")
+    for flag in ("--tools", "--non-code-path", "--tools-path"):
+        code, _out, err = world.run(flag, "x-tools", "recipes")
+        assert (code, err) == (2, f"new-lobster: {flag} needs --render-into (new-lobster --help shows the form)\n")
+    assert not os.path.exists(out_dir) and world.calls() == []
+
+
+def test_render_into_dry_run_lists_the_files_and_writes_nothing(world, tmp_path):
+    out_dir = str(tmp_path / "rendered")
+    code, out, err = world.run("--render-into", out_dir, "--dry-run", "recipes")
+    assert (code, err) == (0, "")
+    assert out.startswith(f"Would render the template for recipes and recipes-tools into {out_dir}: 13 files\n"
+                          "  code/CLAUDE.md\n")
+    assert "  non-code/START-HERE.txt\n" in out and out.endswith("Dry run: nothing was written.\n")
+    assert not os.path.exists(out_dir) and world.calls() == []
+
+
+def test_render_into_refuses_a_template_with_an_unknown_placeholder_and_writes_nothing(world, tmp_path):
+    with open(os.path.join(world.template, "code", "PLAN.md"), "w") as f:
+        f.write("{{NOT_A_PLACEHOLDER}}\n")
+    out_dir = str(tmp_path / "rendered")
+    code, out, err = world.run("--render-into", out_dir, "recipes")
+    assert code == 4 and out == "" and err.startswith("new-lobster: the template cannot be used: ")
+    assert not os.path.exists(out_dir)

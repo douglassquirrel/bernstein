@@ -115,3 +115,17 @@ def test_a_json_file_that_is_not_valid_once_filled_in_is_refused(tmp_path):
     with pytest.raises(TemplateRefused) as refused:
         render_half(str(t), "non-code", VALUES, public=False)
     assert str(refused.value) == "non-code/.claude/settings.json: not valid JSON once filled in"
+
+
+def test_values_for_an_existing_pair_take_its_own_tools_name_and_paths():
+    common = {"model": "opus", "effort": "high", "non_code_dir": "/h/projects/non-code", "code_dir": "/h/projects/code",
+              "mail_root": "/h/projects/mail", "lobster_mail": "/h/l/lobster-tools/lobster-mail",
+              "today": datetime.date(2026, 10, 8), "home": "/h", "tools": "video-tools",
+              "non_code_path": "/h/projects/non-code/videos/training-video",
+              "tools_path": "/h/projects/code/videos/video-tools-code/video-tools"}
+    nc = values_for("training-video", "non-code", public=True, **common)
+    assert (nc["TOOLS"], nc["SISTER"], nc["PACKAGE"], nc["NONCODE_PATH"], nc["TOOLS_PATH"]) == (
+        "video-tools", "video-tools", "videotools", "~/projects/non-code/videos/training-video",
+        "~/projects/code/videos/video-tools-code/video-tools")
+    code = values_for("training-video", "code", public=True, **common)
+    assert (code["SELF"], code["SISTER"], code["BACKLOG_PREFIX"]) == ("video-tools", "training-video", "TR")

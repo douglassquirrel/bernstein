@@ -123,7 +123,36 @@ def report(o, nc, tools_outer, tools_repo, out):
     out.write("\nEach project's first session asks you for its purpose and brief.\n")
 
 
+def render_into(o, env, today, out):
+    """Render both halves into a new folder, for an existing pair; write nothing else."""
+    tools = o.tools or o.name + "-tools"
+    if os.path.lexists(o.render_into):
+        raise Stop(3, f"{o.render_into} already exists; nothing was written")
+    files = {}
+    for half in ("non-code", "code"):
+        values = values_for(o.name, half, model=o.model, effort=o.effort, non_code_dir=o.non_code_dir,
+                            code_dir=o.code_dir, mail_root=o.mail_root, lobster_mail=o.lobster_mail,
+                            public=o.public, today=today, home=env["HOME"], tools=tools,
+                            non_code_path=o.non_code_path, tools_path=o.tools_path)
+        try:
+            rendered = render_half(o.template, half, values, o.public)
+        except TemplateRefused as why:
+            raise Stop(4, f"the template cannot be used: {why}")
+        files.update({f"{half}/{rel}": text for rel, text in rendered.items()})
+    if o.dry_run:
+        out.write(f"Would render the template for {o.name} and {tools} into {o.render_into}: {len(files)} files\n")
+        out.write("".join(f"  {rel}\n" for rel in sorted(files)))
+        out.write("Dry run: nothing was written.\n")
+        return
+    os.makedirs(o.render_into)
+    write_files(o.render_into, files)
+    out.write(f"Rendered the template for {o.name} and {tools} into {o.render_into}: {len(files)} files. "
+              "Nothing else was written.\n")
+
+
 def make(o, env, today, out):
+    if o.render_into:
+        return render_into(o, env, today, out)
     home = env["HOME"]
     nc = os.path.join(o.non_code_dir, o.name)
     tools = o.name + "-tools"

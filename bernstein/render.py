@@ -82,10 +82,14 @@ def tilde(path, home):
     return path
 
 
-def values_for(name, half, model, effort, non_code_dir, code_dir, mail_root, lobster_mail, public, today, home):
-    """The placeholder values for one half of the pair named `name`."""
-    tools = name + "-tools"
-    tools_path = os.path.join(code_dir, tools + "-code", tools) if public else os.path.join(code_dir, tools)
+def values_for(name, half, model, effort, non_code_dir, code_dir, mail_root, lobster_mail, public, today, home,
+               tools=None, non_code_path=None, tools_path=None):
+    """The placeholder values for one half of the pair named `name`; an existing pair may give its own
+    tools name and folders."""
+    tools = tools or name + "-tools"
+    if tools_path is None:
+        tools_path = os.path.join(code_dir, tools + "-code", tools) if public else os.path.join(code_dir, tools)
+    non_code_path = non_code_path or os.path.join(non_code_dir, name)
     non_code = half == "non-code"
     return {
         "NAME": name,
@@ -99,7 +103,7 @@ def values_for(name, half, model, effort, non_code_dir, code_dir, mail_root, lob
         "MODEL": model[:1].upper() + model[1:],
         "MODEL_SETTING": model,
         "EFFORT": effort,
-        "NONCODE_PATH": tilde(os.path.join(non_code_dir, name), home),
+        "NONCODE_PATH": tilde(non_code_path, home),
         "TOOLS_PATH": tilde(tools_path, home),
         "MAIL_ROOT": tilde(mail_root, home),
         "MAIL_ROOT_SHELL": shlex.quote(mail_root),
