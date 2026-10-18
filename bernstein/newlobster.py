@@ -174,7 +174,7 @@ def make(o, env, today, out):
     prefix = o.name.replace("-", "")[:2]
     for folder, project in ((nc, o.name), (tools_outer, tools)):
         run_program(["backlog", "init", project, "--defaults", "--no-git", "--integration-mode", "none",
-                     "--agent-instructions", "none", "--task-prefix", prefix, "--zero-padded-ids", "3"],
+                     "--task-prefix", prefix, "--zero-padded-ids", "3"],
                     folder, env, "backlog init %s" % project, made)
     for box in (o.name, tools):
         run_program([o.lobster_mail, "init", "--root", o.mail_root, box], os.getcwd(), env,
