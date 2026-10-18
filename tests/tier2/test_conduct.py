@@ -327,3 +327,27 @@ def test_start_refuses_a_name_found_in_two_subfolders_and_prefers_one_directly_i
     world.duty({"fish-tools": None})
     code, out, err = world.conduct("start", "--dry-run", "fish-tools")
     assert (code, err) == (0, "") and link_folder(out) == [direct]
+
+
+def test_a_send_that_delivered_but_kept_no_copy_counts_as_sent_and_is_never_repeated(world):
+    world.project("recipes", "non-code")
+    world.project("recipes-tools", "code")
+    world.duty({"recipes": None})
+    world.fail("lobster-mail:send:7")
+    code, out, err = world.conduct("start", "recipes")
+    assert code == 0
+    assert "Sent the Start message to recipes." in out and len(opened(world)) == 1
+    assert err == ("conduct: the Start message reached recipes, but bernstein's own copy of it could not be "
+                   "kept (lobster-mail exit 7); it was not sent again\n  lobster-mail: stub failure\n")
+    assert len(sent(world)) == 1
+    world.duty({"recipes": "fresh"})
+    looks = []
+
+    def sleep(seconds):
+        looks.append(seconds)
+        world.duty({"recipes": "handed over"})
+
+    code, out, err = world.conduct("stop", "recipes", "--wait", "60", sleep=sleep)
+    assert code == 0 and out.endswith("recipes has handed over.\n") and looks == [10]
+    assert err.startswith("conduct: the Stop message reached recipes, but bernstein's own copy")
+    assert len(sent(world)) == 2

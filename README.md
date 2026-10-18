@@ -152,6 +152,10 @@ one directly in the folder wins, and the same name in two subfolders is refused)
 and EFFORT lines, and, for a non-code project, a SISTER line naming a tools project that exists.
 A project made before the lobster template needs these before `conduct` can start it.
 
+If `lobster-mail` reports exit 7 (the message was delivered, but bernstein's own copy in `sent/`
+could not be written), `conduct` counts the message as sent: it says so on standard error, never
+sends it again, and carries on (opening the session, or waiting for the handover).
+
 A session sees mail at its own pace: at once when eager, at the next pause when normal, only at
 the end of a turn when relaxed. So a Stop to a relaxed session waits until you next talk to it.
 
@@ -235,6 +239,8 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
   sister tools project, instead of starting it or failing with a traceback.
 - 18 October 2026: `conduct` also finds a project, and a non-code project's sister, one subfolder down
   (`~/projects/code/videos/video-tools`), so related projects can be kept together.
+- 18 October 2026: `conduct` treats `lobster-mail`'s exit 7 (delivered, no sent copy) as sent, and never
+  sends the message again.
 - 18 October 2026: `new-lobster --render-into` renders the template for an existing pair into a new folder,
   for bringing it into line by hand.
 - 18 October 2026: `conform <non-code> <tools>` lists what an existing pair lacks against the template.

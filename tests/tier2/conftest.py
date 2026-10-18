@@ -1,7 +1,8 @@
 """Stubs on PATH for new-lobster's external programs, and a run() that drives main().
 
 Each stub records its arguments and working folder as one JSON line in calls.jsonl. A stub
-fails when its name is listed in the file `fail` in the stub folder. The lobster-mail stub's
+fails when its name is listed in the file `fail` in the stub folder, as `name`, `name:verb` (only that
+first argument) or `name:verb:code` (that exit code; 1 otherwise). The lobster-mail stub's
 `duty status --all --json` prints the JSON in `duty.json` (default: no mailboxes).
 """
 
@@ -27,9 +28,11 @@ STUB = textwrap.dedent('''\
     with open(os.path.join(here, "calls.jsonl"), "a") as log:
         log.write(json.dumps(entry) + "\\n")
     fail = os.path.join(here, "fail")
-    if os.path.exists(fail) and name in open(fail).read().split():
-        sys.stderr.write(name + ": stub failure\\n")
-        sys.exit(1)
+    for rule in (open(fail).read().split() if os.path.exists(fail) else []):
+        prog, verb, code = (rule.split(":") + ["", ""])[:3]
+        if prog == name and verb in ("", (sys.argv[1:] or [""])[0]):
+            sys.stderr.write(name + ": stub failure\\n")
+            sys.exit(int(code or 1))
     args = sys.argv[1:]
     if name == "lobster-mail" and args[:3] == ["duty", "status", "--all"]:
         duty = os.path.join(here, "duty.json")

@@ -18,6 +18,7 @@ from bernstein.settings import SettingsRefused, read_settings
 PACES = ("eager", "normal", "relaxed")
 WAIT_STEP = 10
 CHANGING_TRIES = 3
+DELIVERED = 7  # lobster-mail: delivered, but the sender's sent copy could not be written
 
 
 class ProjectRefused(ValueError):
@@ -193,13 +194,16 @@ def parser():
     return p
 
 
-def run(argv, env, what, stdin=None):
+def run(argv, env, what, stdin=None, also_fine=()):
+    """Run a program; its standard output, or (exit code, detail) for an exit code in also_fine."""
     try:
         done = subprocess.run(argv, input=stdin, env=env, capture_output=True, text=True, check=False)
     except OSError as why:
         raise Stop(4, f"{what} could not be run ({why.strerror})")
+    detail = (done.stderr or done.stdout).strip()
+    if done.returncode in also_fine:
+        return done.returncode, detail
     if done.returncode != 0:
-        detail = (done.stderr or done.stdout).strip()
         raise Stop(4, f"{what} failed (exit {done.returncode})" + ("\n  " + detail if detail else ""))
     return done.stdout
 
@@ -227,12 +231,18 @@ def fresh(entry):
     return duty is not None and not duty.get("stale")
 
 
-def send(s, env, to, subject, body):
-    run([s["LOBSTER_MAIL"], "send", "--as", "bernstein", "--to", to, "--subject", subject, "--root",
-         s["MAIL_ROOT"], "-"], env, f"lobster-mail send to {to}", stdin=body)
+def send(s, env, to, subject, body, err):
+    """Send as bernstein. lobster-mail's exit 7 means delivered without bernstein's sent copy: it counts
+    as sent, is said on standard error, and is never sent again."""
+    done = run([s["LOBSTER_MAIL"], "send", "--as", "bernstein", "--to", to, "--subject", subject, "--root",
+                s["MAIL_ROOT"], "-"], env, f"lobster-mail send to {to}", stdin=body, also_fine=(DELIVERED,))
+    if isinstance(done, tuple):
+        kind = subject.split(":")[0]
+        err.write(f"conduct: the {kind} message reached {to}, but bernstein's own copy of it could not be kept "
+                  f"(lobster-mail exit {DELIVERED}); it was not sent again\n  {done[1]}\n")
 
 
-def start(a, s, env, today, out, sleep):
+def start(a, s, env, today, out, err, sleep):
     brief = None
     if a.brief is not None:
         try:
@@ -261,7 +271,7 @@ def start(a, s, env, today, out, sleep):
     if a.pace:
         run([s["LOBSTER_MAIL"], "pace", "--as", a.project, a.pace, "--root", s["MAIL_ROOT"]], env,
             f"lobster-mail pace {a.pace}")
-    send(s, env, a.project, f"Start: {a.project}", body)
+    send(s, env, a.project, f"Start: {a.project}", body, err)
     out.write(f"Sent the Start message to {a.project}.\n")
     run(["open", link], env, "open")
     if project.kind == "non-code":
@@ -272,7 +282,7 @@ def start(a, s, env, today, out, sleep):
                   f"{project.model}, {project.effort}.\n")
 
 
-def stop(a, s, env, today, out, sleep):
+def stop(a, s, env, today, out, err, sleep):
     if a.all == (a.project is not None):
         raise Stop(2, "name one project, or give --all")
     boxes = listing(s, env, sleep)
@@ -294,7 +304,7 @@ def stop(a, s, env, today, out, sleep):
         out.write("Dry run: nothing was sent.\n")
         return
     for name in targets:
-        send(s, env, name, "Stop: hand over", body)
+        send(s, env, name, "Stop: hand over", body, err)
         out.write(f"Sent the Stop message to {name}.\n")
     if a.wait is None:
         return
@@ -334,7 +344,7 @@ def main(argv, env, today, out, err, sleep):
             raise Stop(2, f"{why} (conduct --help shows the form)")
         if a.verb is None:
             raise Stop(2, "say start or stop (conduct --help shows the form)")
-        (start if a.verb == "start" else stop)(a, s, env, today, out, sleep)
+        (start if a.verb == "start" else stop)(a, s, env, today, out, err, sleep)
     except Stop as stopped:
         err.write(f"conduct: {stopped.message}\n")
         return stopped.code
