@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""conduct: start a lobster project's session, or ask one to hand over. Run conduct --help."""
+import datetime
+import os
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+
+from bernstein.conduct import main  # noqa: E402
+
+sys.exit(main(sys.argv[1:], dict(os.environ), datetime.date.today(), sys.stdout, sys.stderr, time.sleep))

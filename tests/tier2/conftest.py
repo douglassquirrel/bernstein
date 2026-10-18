@@ -21,8 +21,11 @@ STUB = textwrap.dedent('''\
     import json, os, sys
     here = {bin!r}
     name = os.path.basename(sys.argv[0])
+    entry = {{"prog": name, "args": sys.argv[1:], "cwd": os.getcwd()}}
+    if sys.argv[-1:] == ["-"]:
+        entry["stdin"] = sys.stdin.read()
     with open(os.path.join(here, "calls.jsonl"), "a") as log:
-        log.write(json.dumps({{"prog": name, "args": sys.argv[1:], "cwd": os.getcwd()}}) + "\\n")
+        log.write(json.dumps(entry) + "\\n")
     fail = os.path.join(here, "fail")
     if os.path.exists(fail) and name in open(fail).read().split():
         sys.stderr.write(name + ": stub failure\\n")
@@ -90,7 +93,7 @@ class World:
         for d in (self.home, self.bin, self.non_code, self.code, self.mail):
             os.makedirs(d, exist_ok=True)
         write_tree(self.template, TEMPLATE)
-        for prog in ("git", "backlog", "lobster-mail", "python3"):
+        for prog in ("git", "backlog", "lobster-mail", "python3", "open"):
             p = os.path.join(self.bin, prog)
             with open(p, "w") as f:
                 f.write(STUB.format(python=sys.executable, bin=self.bin))
@@ -111,6 +114,39 @@ class World:
         with open(os.path.join(self.bin, "duty.json"), "w") as f:
             json.dump({"root": self.mail, "mailboxes": [{"mailbox": n, "duty": None} for n in names],
                        "skipped": list(skipped)}, f)
+
+    def duty(self, boxes):
+        """Set the duty listing: {mailbox: None (nobody), "fresh", "stale", "changing" or "handed over"}."""
+        listing = []
+        for name, state in boxes.items():
+            duty = None
+            if state in ("fresh", "stale"):
+                duty = {"mailbox": name, "holder": "mac", "since": "2026-10-18T09:00:00Z",
+                        "last_beat": "2026-10-18T09:30:00Z", "stale": state == "stale", "minutes": 3}
+            listing.append({"mailbox": name, "duty": duty, "new": 0, "open": 0,
+                            "handover_waiting": state == "handed over", "duty_changing": state == "changing"})
+        with open(os.path.join(self.bin, "duty.json"), "w") as f:
+            json.dump({"root": self.mail, "mailboxes": listing, "skipped": []}, f)
+
+    def project(self, name, kind, public=False):
+        """A project folder with its lobster.conf, as new-lobster makes it."""
+        if kind == "non-code":
+            folder, sister = os.path.join(self.non_code, name), name + "-tools"
+        else:
+            sister = name[: -len("-tools")]
+            folder = os.path.join(self.code, name + "-code") if public else os.path.join(self.code, name)
+        os.makedirs(os.path.join(folder, name) if public else folder, exist_ok=True)
+        with open(os.path.join(folder, "lobster.conf"), "w") as f:
+            f.write(f"KIND={kind}\nSELF={name}\nSISTER={sister}\nMODEL=opus\nEFFORT=high\n")
+        return folder
+
+    def conduct(self, *argv, sleep=None):
+        from bernstein import conduct
+        out, err = io.StringIO(), io.StringIO()
+        env = {"PATH": self.bin + os.pathsep + "/usr/bin:/bin", "HOME": self.home, "BERNSTEIN_CONF": self.conf}
+        code = conduct.main(list(argv), env=env, today=datetime.date(2026, 10, 18), out=out, err=err,
+                            sleep=sleep or (lambda seconds: None))
+        return code, out.getvalue(), err.getvalue()
 
     def calls(self):
         p = os.path.join(self.bin, "calls.jsonl")

@@ -2,9 +2,10 @@
 
 Tools that set up and run "lobster" projects: pairs of projects worked on with Claude, where a
 non-code project does the work and asks a companion tools project, by mail, for every routine task
-as a tested command. The first tool, `new-lobster`, makes such a pair in one step: both folders from
-a template, git, a Backlog issue tracker, a mailbox each, and the first commits. It is for one
-person's Mac and their own projects; the projects talk by `lobster-mail`, from the
+as a tested command. `new-lobster` makes such a pair in one step: both folders from a template,
+git, a Backlog issue tracker, a mailbox each, and the first commits. `conduct` starts a project's
+session and asks a running one to hand over. They are for one person's Mac and their own
+projects; the projects talk by `lobster-mail`, from the
 [lobster-tools](https://github.com/douglassquirrel/lobster-tools) repository.
 
 ## Requirements
@@ -104,6 +105,40 @@ underscores, such as `{{NAME}}`, `{{TOOLS}}`, `{{SELF}}`, `{{SISTER}}`, `{{DATE}
 `{{EFFORT}}`, is filled in; an unknown one is an error. Any other `{{…}}` is left as written, for
 the project's first session to complete.
 
+## conduct: starting and stopping a project's session
+
+```
+conduct start <project> [--brief FILE] [--pace eager|normal|relaxed] [--dry-run]
+conduct stop  <project> | --all  [--wait SECONDS] [--dry-run]
+```
+
+`conduct` talks to a lobster project's session by mail, as `bernstein`; each project's guidance
+says to act on bernstein's mail at once. It reads who is on duty with `lobster-mail duty status
+--all`, and never writes in a project's folder.
+
+- **`start`** refuses if a session is already on duty for the project. Otherwise it sets the mail
+  pace if `--pace` is given, mails a Start message (follow `START-HERE.txt` from the top, then the
+  brief from `--brief FILE`, or wait), and opens the session in the Claude desktop app with the
+  documented link: a Claude session for a non-code project, with its folder, the mail root, its
+  tools project and `lobster-tools` connected; a Claude Code session for a tools project. You
+  confirm the folders and send the prefilled first line. For a Claude Code session it reminds you
+  to have a bernstein session set its model and effort, which a program cannot do.
+- **`stop`** mails a Stop message: hand over at the next safe point, then stop. `--all` asks every
+  session on duty except bernstein's. `--wait SECONDS` waits for each handover, looking every 10
+  seconds.
+- **`--dry-run`** shows the message and the link, and sends and opens nothing.
+
+A session sees mail at its own pace: at once when eager, at the next pause when normal, only at
+the end of a turn when relaxed. So a Stop to a relaxed session waits until you next talk to it.
+
+| Code | Meaning |
+|---|---|
+| 0 | Sent (and, with `--wait`, handed over); or, for `stop`, nobody on duty |
+| 2 | Bad arguments or settings |
+| 3 | No such project or mailbox; or, for `start`, a session is already on duty |
+| 4 | A program failed, or the duty listing could not be read |
+| 5 | `--wait` ran out before the handover arrived |
+
 ## Errors and exit codes
 
 Every failure is one line on standard error starting `new-lobster:`, saying what happened.
@@ -126,7 +161,7 @@ Every failure is one line on standard error starting `new-lobster:`, saying what
 
 `tests/tier1/` tests the pure parts (names, settings, rendering) against small invented templates;
 `tests/tier2/` runs `new-lobster` end to end against stubs of `git`, `backlog`, `lobster-mail` and
-Python placed on `PATH`, with no network. Coverage is 99%: the two uncovered lines handle a folder
+Python placed on `PATH`, and `conduct` against stubs of `lobster-mail` and `open`, with no network. Coverage is 99%: the two uncovered lines handle a folder
 that appears while `new-lobster` is running, a race the tests cannot stage.
 
 Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a settings file whose
@@ -142,7 +177,7 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
 
 ## Notes for users
 
-- 18 October 2026: first version of `new-lobster`.
+- 18 October 2026: first versions of `new-lobster` and `conduct`.
 
 ## Contributing
 
