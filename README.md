@@ -163,6 +163,34 @@ the end of a turn when relaxed. So a Stop to a relaxed session waits until you n
 | 4 | A program failed, or the duty listing could not be read |
 | 5 | `--wait` ran out before the handover arrived |
 
+## conform: what an existing pair lacks
+
+```
+conform <non-code> <tools>
+```
+
+`conform` reads an existing pair and lists, half by half, what it lacks against the template; it
+changes nothing. It finds each half where `conduct` looks (one subfolder down included), then checks:
+`lobster.conf` (readable, with the right KIND, SELF and SISTER and a MODEL and EFFORT), `START-HERE.txt`,
+`.claude/settings.json` with the `lobster-mail start` hook, `inbox/README.md`, CLAUDE.md having each
+section the template's CLAUDE.md for that half takes from `common/sections/` and each heading naming
+the pair, a git repository, `backlog/`, the mailbox, and, for a public tools project, none of the
+outer files (CLAUDE.md, PLAN.md, DIARY.md, START-HERE.txt, `lobster.conf`, `inbox/`, `.claude/`)
+inside the checkout. For example, for a pair brought into line:
+
+```
+$ ./conform training-video video-tools
+training-video (non-code): /Users/sq/projects/non-code/videos/training-video
+  in line
+video-tools (code): /Users/sq/projects/code/videos/video-tools-code
+  in line
+Both halves are in line.
+```
+
+A gap is a line `missing: …`; a half that cannot be found, or is in two places, says so. Exit codes:
+0 nothing missing, 1 something missing, 2 bad arguments or settings, 4 the template cannot be read.
+Use it with `new-lobster --render-into` to bring an older pair into line.
+
 ## Errors and exit codes
 
 Every failure is one line on standard error starting `new-lobster:`, saying what happened.
@@ -185,7 +213,7 @@ Every failure is one line on standard error starting `new-lobster:`, saying what
 
 `tests/tier1/` tests the pure parts (names, settings, rendering) against small invented templates;
 `tests/tier2/` runs `new-lobster` end to end against stubs of `git`, `backlog`, `lobster-mail` and
-Python placed on `PATH`, and `conduct` against stubs of `lobster-mail` and `open`, with no network. Coverage is 99%: the two uncovered lines handle a folder
+Python placed on `PATH`, `conduct` against stubs of `lobster-mail` and `open`, and `conform` against invented pairs, with no network. Coverage is 99%: the two uncovered lines handle a folder
 that appears while `new-lobster` is running, a race the tests cannot stage.
 
 Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a settings file whose
@@ -209,6 +237,7 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
   (`~/projects/code/videos/video-tools`), so related projects can be kept together.
 - 18 October 2026: `new-lobster --render-into` renders the template for an existing pair into a new folder,
   for bringing it into line by hand.
+- 18 October 2026: `conform <non-code> <tools>` lists what an existing pair lacks against the template.
 
 ## Contributing
 

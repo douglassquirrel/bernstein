@@ -151,6 +151,13 @@ class World:
                             sleep=sleep or (lambda seconds: None))
         return code, out.getvalue(), err.getvalue()
 
+    def conform(self, *argv):
+        from bernstein import conform
+        out, err = io.StringIO(), io.StringIO()
+        env = {"PATH": self.bin + os.pathsep + "/usr/bin:/bin", "HOME": self.home, "BERNSTEIN_CONF": self.conf}
+        code = conform.main(list(argv), env=env, out=out, err=err)
+        return code, out.getvalue(), err.getvalue()
+
     def calls(self):
         p = os.path.join(self.bin, "calls.jsonl")
         if not os.path.exists(p):
