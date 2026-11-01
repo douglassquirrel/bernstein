@@ -164,7 +164,7 @@ def test_values_for_a_pair_s_code_half_name_the_sister_where_a_lone_claw_names_a
     assert pair["FOR_WHOM"] == "the work done in the sister project, `recipes` (`~/projects/non-code/recipes`)"
     assert (pair["REQUESTER"], pair["SERVING"]) == ("`recipes`", "`recipes`")
     assert (pair["TALKS_TO"], pair["ASKING"], pair["SEND_TO"]) == ("its sister project, `recipes`", "`recipes`", "recipes")
-    assert pair["OF_WHOM"] == "the lobster pair `recipes` and `recipes-tools`"
+    assert pair["OF_WHOM"] == "the tools project of the lobster pair `recipes` and `recipes-tools`"
     assert pair["SISTER_FIRST_SESSION"].startswith("In this tools half, read the sister project's CLAUDE.md first (read only:\n"
                                                    "   ~/projects/non-code/recipes/CLAUDE.md,")
     lone = values_for(None, "code", public=True, tools="word-tools", **COMMON)
@@ -176,6 +176,14 @@ def test_values_for_a_pair_s_code_half_name_the_sister_where_a_lone_claw_names_a
                                 "claw for a tool")
     assert (lone["REQUESTER"], lone["SERVING"]) == ("a lobster project", "Squirrel's lobster projects")
     assert (lone["TALKS_TO"], lone["ASKING"], lone["SEND_TO"]) == ("the lobster projects it serves", "another project", "<project>")
-    assert lone["OF_WHOM"] == "`word-tools`, a claw: a tools project with no sister project, used by any lobster project that asks"
+    assert lone["OF_WHOM"] == "a claw, `word-tools`: a tools project with no sister project, used by any lobster project that asks"
     assert lone["SISTER_FIRST_SESSION"].startswith("This claw has no sister project: ask Squirrel which lobster projects will use it first")
     assert lone["CLAWS"] == ""
+
+
+def test_the_sister_words_of_a_non_code_half_name_its_tools_project_not_itself():
+    nc = values_for("training-video", "non-code", public=True, tools="video-tools", **COMMON)
+    assert (nc["TALKS_TO"], nc["ASKING"], nc["SEND_TO"]) == ("its sister project, `video-tools`", "`video-tools`", "video-tools")
+    code = values_for("training-video", "code", public=True, tools="video-tools", **COMMON)
+    assert (code["TALKS_TO"], code["ASKING"], code["SEND_TO"]) == (
+        "its sister project, `training-video`", "`training-video`", "training-video")

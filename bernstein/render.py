@@ -121,21 +121,22 @@ def values_for(name, half, model, effort, non_code_dir, code_dir, mail_root, lob
             "TALKS_TO": "the lobster projects it serves",
             "ASKING": "another project",
             "SEND_TO": "<project>",
-            "OF_WHOM": f"`{tools}`, a claw: a tools project with no sister project, used by any lobster project that asks",
+            "OF_WHOM": f"a claw, `{tools}`: a tools project with no sister project, used by any lobster project that asks",
             "SISTER_FIRST_SESSION": "This claw has no sister project: ask Squirrel which lobster projects will use it "
                                     "first, and\n   read their CLAUDE.md (read only) for what their work is before "
                                     "offering answers for \"What this is\".",
         }
     else:
+        other = tools if non_code else name  # the Mail section's words name the other half
         sister_words = {
             "SERVED": "sister",
             "FOR_WHOM": f"the work done in the sister project, `{name}` (`{nc_shown}`)",
             "REQUESTER": f"`{name}`",
             "SERVING": f"`{name}`",
-            "TALKS_TO": f"its sister project, `{name}`",
-            "ASKING": f"`{name}`",
-            "SEND_TO": name,
-            "OF_WHOM": f"the lobster pair `{name}` and `{tools}`",
+            "TALKS_TO": f"its sister project, `{other}`",
+            "ASKING": f"`{other}`",
+            "SEND_TO": other,
+            "OF_WHOM": f"the tools project of the lobster pair `{name}` and `{tools}`",
             "SISTER_FIRST_SESSION": "In this tools half, read the sister project's CLAUDE.md first (read only:\n"
                                     f"   {nc_shown}/CLAUDE.md, its Purpose and The brief) and offer its answers for "
                                     "\"What this is\",\n   so Squirrel need not say them twice.",
