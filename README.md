@@ -200,8 +200,9 @@ conform <lone claw>
 
 `conform` reads an existing pair and lists, half by half, what it lacks against the template; it
 changes nothing. With one name it checks a lone claw alone, as a code half with an empty SISTER,
-and ends "The claw is in line." It finds each half where `conduct` looks (one subfolder down
-included), then checks: `lobster.conf` (readable, with the right KIND, SELF and SISTER and a MODEL
+and ends "The claw is in line." In a pair's check, a home claw whose `lobster.conf` has an empty
+SISTER is a lone claw serving this project among others, and is checked as one. It finds each half
+where `conduct` looks (one subfolder down included), then checks: `lobster.conf` (readable, with the right KIND, SELF and SISTER and a MODEL
 and EFFORT), for a non-code project every claw in CLAWS present in the code folder, `START-HERE.txt`,
 `.claude/settings.json` with the `lobster-mail start` hook passing this mail root to `--root`,
 `inbox/README.md`, CLAUDE.md having each section the template's CLAUDE.md for that half takes from

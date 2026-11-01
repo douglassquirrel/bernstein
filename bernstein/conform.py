@@ -183,10 +183,30 @@ def parser():
     return p
 
 
+def lone_or(non_code, tools, s):
+    """The sister a home claw's lobster.conf should name: the non-code project, unless the claw says it is a
+    lone claw (an empty SISTER), which serves this project among others and is checked as one."""
+    try:
+        found = find(tools, "code", s)
+    except ProjectRefused:
+        return non_code
+    if found is None:
+        return non_code
+    conf = os.path.join(found[0], "lobster.conf")
+    if not os.path.isfile(conf):
+        return non_code
+    try:
+        settings = read_conf_file(conf)
+    except (UnicodeDecodeError, OSError):
+        return non_code
+    return "" if "SISTER" in settings and not settings["SISTER"] else non_code
+
+
 def report(a, s, out):
     """Write the report; return the number of things missing."""
     total = 0
-    halves = ((a.project, "non-code", a.tools), (a.tools, "code", a.project)) if a.tools else ((a.project, "code", ""),)
+    halves = ((a.project, "non-code", a.tools), (a.tools, "code", lone_or(a.project, a.tools, s))) if a.tools else (
+        (a.project, "code", ""),)
     for name, kind, sister in halves:
         base = s["CODE_DIR"] if kind == "code" else s["NON_CODE_DIR"]
         try:

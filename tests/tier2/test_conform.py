@@ -334,3 +334,15 @@ def test_a_non_code_projects_further_claws_must_each_exist(world):
                    f"  missing: the claw google-docs-tools in {world.code} or a folder directly inside it\n"
                    f"recipes-tools (code): {os.path.join(world.code, 'recipes-tools')}\n  in line\n"
                    "1 thing to bring into line.\n")
+
+
+def test_a_home_claw_that_is_a_lone_claw_is_checked_as_one_not_as_the_pairs_code_half(world):
+    nc, outer, _checkout = pair_in_line(world)
+    write(world.template, SERVED)
+    write(outer, {"lobster.conf": "KIND=code\nSELF=recipes-tools\nSISTER=\nMODEL=opus\nEFFORT=high\n",
+                  "CLAUDE.md": "# recipes-tools\n\n## Who may ask\n\n## Inbox\n\nOurs.\n"})
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert (code, out.splitlines()[-1]) == (0, "Both halves are in line.")
+    write(nc, {"CLAUDE.md": "# recipes\n\n## Mail\n\nOurs.\n"})
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert code == 1 and "  missing: the section \"## The pair: recipes and recipes-tools\" in CLAUDE.md\n" in out
