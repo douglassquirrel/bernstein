@@ -181,8 +181,8 @@ def test_a_half_that_cannot_be_found_or_is_in_two_places_is_reported_and_the_oth
 
 def test_help_bad_arguments_bad_settings_and_an_unreadable_template_are_plain_errors(world):
     code, out, _err = world.conform("--help")
-    assert code == 0 and out.startswith("usage: conform [-h] non_code tools")
-    code, _out, err = world.conform("recipes")
+    assert code == 0 and out.startswith("usage: conform [-h] project [tools]")
+    code, _out, err = world.conform()
     assert code == 2 and err.startswith("conform: ") and err.endswith("(conform --help shows the form)\n")
     world.write_conf("EFFORT=extreme\n")
     code, _out, err = world.conform("recipes", "recipes-tools")
@@ -277,3 +277,60 @@ def test_a_project_may_word_its_other_shared_sections_itself(world):
         f.write("\n## Backlog\n\nSet up long ago.\n")
     code, out, _err = world.conform("recipes", "recipes-tools")
     assert (code, out.splitlines()[-1]) == (0, "Both halves are in line.")
+
+
+SERVED = {
+    "common/sections/served-sister.md": "## The sister project: {{NAME}}\n\nServes it.\n",
+    "common/sections/served-any.md": "## Who may ask\n\nAny lobster project.\n",
+    "code/CLAUDE.md": "# {{TOOLS}}\n\n{{> sections/served-{{SERVED}}.md}}\n\n{{> sections/repo-{{VISIBILITY}}.md}}\n",
+}
+
+
+def lone_claw_in_line(world):
+    """A public lone claw, word-tools, with everything the template gives it: its outer folder."""
+    lobster_template(world)
+    write(world.template, SERVED)
+    outer = os.path.join(world.code, "word-tools-code")
+    half_in_line(world, outer, "code", "word-tools", "",
+                 "# word-tools\n\n## Who may ask\n\nOurs.\n\n## Inbox\n\nOurs.\n")
+    os.makedirs(os.path.join(outer, "word-tools", ".git"))
+    os.makedirs(os.path.join(world.mail, "word-tools"))
+    return outer
+
+
+def test_a_lone_claw_is_checked_on_its_own_against_the_code_half_with_no_sister(world):
+    outer = lone_claw_in_line(world)
+    code, out, err = world.conform("word-tools")
+    assert (code, err) == (0, "")
+    assert out == f"word-tools (code): {outer}\n  in line\nThe claw is in line.\n"
+    write(outer, {"lobster.conf": "KIND=code\nSELF=word-tools\nSISTER=recipes\nMODEL=opus\nEFFORT=high\n",
+                  "CLAUDE.md": "# word-tools\n\n## The sister project: recipes\n\n## Inbox\n\nOurs.\n"})
+    code, out, _err = world.conform("word-tools")
+    assert code == 1
+    assert out == (f"word-tools (code): {outer}\n"
+                   "  missing: SISTER= (empty: a lone claw) in lobster.conf (it says recipes)\n"
+                   "  missing: the section \"## Who may ask\" in CLAUDE.md\n"
+                   "2 things to bring into line.\n")
+
+
+def test_a_pairs_code_half_still_needs_its_sister_section_when_the_template_has_the_served_includes(world):
+    _nc, outer, _checkout = pair_in_line(world)
+    write(world.template, SERVED)
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert (code, out.splitlines()[-1]) == (0, "Both halves are in line.")
+    write(outer, {"CLAUDE.md": "# recipes-tools\n\n## Who may ask\n\n## Inbox\n\nOurs.\n"})
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert code == 1 and "  missing: the section \"## The sister project: recipes\" in CLAUDE.md\n" in out
+
+
+def test_a_non_code_projects_further_claws_must_each_exist(world):
+    nc, _outer, _checkout = pair_in_line(world)
+    write(nc, {"lobster.conf": "KIND=non-code\nSELF=recipes\nSISTER=recipes-tools\nMODEL=opus\nEFFORT=high\n"
+                               "CLAWS=word-tools google-docs-tools\n"})
+    os.makedirs(os.path.join(world.code, "word-tools-code", "word-tools"))
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert code == 1
+    assert out == (f"recipes (non-code): {nc}\n"
+                   f"  missing: the claw google-docs-tools in {world.code} or a folder directly inside it\n"
+                   f"recipes-tools (code): {os.path.join(world.code, 'recipes-tools')}\n  in line\n"
+                   "1 thing to bring into line.\n")

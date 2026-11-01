@@ -99,6 +99,10 @@ def parser_for_new_lobster():
     p.add_argument("--tools", metavar="NAME", help="with --render-into: the tools project's name (default <name>-tools)")
     p.add_argument("--non-code-path", metavar="DIR", help="with --render-into: where the non-code project is")
     p.add_argument("--tools-path", metavar="DIR", help="with --render-into: where the tools checkout is")
+    p.add_argument("--claw", action="store_true", help="NAME is a claw, a tools project with no non-code half: "
+                   "make only it (or with --render-into, render only the code half)")
+    p.add_argument("--claws", metavar="NAMES", help="with --render-into: the further claws the non-code project "
+                   "uses besides its home, <name>-tools or --tools, separated by spaces")
     return p
 
 
@@ -106,12 +110,22 @@ def options_for_new_lobster(argv, settings):
     """The options for one run of new-lobster: the flags over the settings."""
     a = parser_for_new_lobster().parse_args(argv)
     try:
-        check_name(a.name)
+        check_name(a.name, claw=a.claw)
     except NameRefused as why:
-        raise SettingsRefused(f"the name {a.name} cannot be used: {why}")
-    for flag, value in (("--tools", a.tools), ("--non-code-path", a.non_code_path), ("--tools-path", a.tools_path)):
+        raise SettingsRefused(f"the {'claw ' if a.claw else ''}name {a.name} cannot be used: {why}")
+    for flag, value in (("--tools", a.tools), ("--non-code-path", a.non_code_path), ("--tools-path", a.tools_path),
+                        ("--claws", a.claws)):
         if value is not None and a.render_into is None:
             raise SettingsRefused(f"{flag} needs --render-into")
+    for flag, value in (("--tools", a.tools), ("--non-code-path", a.non_code_path), ("--claws", a.claws)):
+        if value is not None and a.claw:
+            raise SettingsRefused(f"{flag} cannot be used with --claw, which has no non-code half")
+    claws = (a.claws or "").split()
+    for claw in claws:
+        try:
+            check_name(claw, claw=True)
+        except NameRefused as why:
+            raise SettingsRefused(f"the claw name {claw} cannot be used: {why}")
     if a.tools is not None:
         if not a.tools.endswith("-tools"):
             raise SettingsRefused(f"the tools name {a.tools} must end in -tools")
@@ -139,4 +153,6 @@ def options_for_new_lobster(argv, settings):
         tools=a.tools,
         non_code_path=a.non_code_path,
         tools_path=a.tools_path,
+        claw=a.claw,
+        claws=claws,
     )

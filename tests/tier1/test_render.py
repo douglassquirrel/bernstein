@@ -87,7 +87,7 @@ def test_values_for_each_half():
                   "mail_root": "/h/projects/mail", "lobster_mail": "/h/l/lobster-tools/lobster-mail",
                   "today": datetime.date(2026, 10, 8), "home": "/h"}
     nc = values_for("recipes", "non-code", public=False, **common)
-    assert nc == {
+    pinned = {
         "NAME": "recipes", "TOOLS": "recipes-tools", "SELF": "recipes", "SISTER": "recipes-tools",
         "KIND": "non-code", "PACKAGE": "recipestools", "DATE": "8 October 2026", "YEAR": "2026",
         "MODEL": "Opus", "MODEL_SETTING": "opus", "EFFORT": "high",
@@ -96,6 +96,7 @@ def test_values_for_each_half():
         "LOBSTER_TOOLS": "~/l/lobster-tools", "VISIBILITY": "private",
         "BACKLOG_PREFIX": "RE", "QUESTIONS_AT": 'CLAUDE.md, "Open questions for Squirrel"',
     }
+    assert {k: nc[k] for k in pinned} == pinned  # the claw placeholders have their own test below
     code = values_for("recipes", "code", public=True, **common)
     assert (code["SELF"], code["SISTER"], code["KIND"], code["VISIBILITY"]) == ("recipes-tools", "recipes", "code", "public")
     assert code["TOOLS_PATH"] == "~/projects/code/recipes-tools-code/recipes-tools"
@@ -129,3 +130,52 @@ def test_values_for_an_existing_pair_take_its_own_tools_name_and_paths():
         "~/projects/code/videos/video-tools-code/video-tools")
     code = values_for("training-video", "code", public=True, **common)
     assert (code["SELF"], code["SISTER"], code["BACKLOG_PREFIX"]) == ("video-tools", "training-video", "TR")
+
+
+COMMON = {"model": "opus", "effort": "high", "non_code_dir": "/h/projects/non-code", "code_dir": "/h/projects/code",
+          "mail_root": "/h/projects/mail", "lobster_mail": "/h/l/lobster-tools/lobster-mail",
+          "today": datetime.date(2026, 11, 1), "home": "/h"}
+
+
+def test_values_for_a_non_code_project_name_its_home_claw_and_the_further_claws_it_uses():
+    nc = values_for("beyond-ai", "non-code", public=True, tools="book-tools",
+                    claws=["word-tools", "google-docs-tools"], **COMMON)
+    assert nc["CLAWS"] == "word-tools google-docs-tools"
+    assert nc["CLAW_LIST"] == "`book-tools`, `word-tools` and `google-docs-tools`"
+    assert nc["CLAW_NAMES"] == "book-tools, word-tools and google-docs-tools"
+    assert nc["OTHER_CLAWS"] == "It also uses the claws `word-tools` and `google-docs-tools`."
+    assert nc["CLAW_MOUNTS"] == (
+        "| `~/mnt/book-tools` | the home claw, `book-tools`: **read and run only**; never write, commit, install or make a `.venv` in it |\n"
+        "| `~/mnt/word-tools` | the claw `word-tools`: read and run only, as above |\n"
+        "| `~/mnt/google-docs-tools` | the claw `google-docs-tools`: read and run only, as above |")
+    assert nc["CLAW_ROWS"] == (
+        "| `book-tools` | {{to fill: as they are made}} | From `~/mnt/book-tools`, as its README says; the home claw, where new tools are born |\n"
+        "| `word-tools` | {{to fill: as they are used}} | From `~/mnt/word-tools`, as its README says |\n"
+        "| `google-docs-tools` | {{to fill: as they are used}} | From `~/mnt/google-docs-tools`, as its README says |")
+    alone = values_for("recipes", "non-code", public=False, **COMMON)
+    assert (alone["CLAWS"], alone["CLAW_LIST"], alone["CLAW_NAMES"]) == ("", "`recipes-tools`", "recipes-tools")
+    assert alone["OTHER_CLAWS"] == "It uses no other claw yet; when it comes to, `CLAWS` in `lobster.conf` names them."
+    assert alone["CLAW_MOUNTS"].count("\n") == 0 and alone["CLAW_ROWS"].count("\n") == 0
+
+
+def test_values_for_a_pair_s_code_half_name_the_sister_where_a_lone_claw_names_any_project():
+    pair = values_for("recipes", "code", public=False, **COMMON)
+    assert pair["SERVED"] == "sister"
+    assert pair["FOR_WHOM"] == "the work done in the sister project, `recipes` (`~/projects/non-code/recipes`)"
+    assert (pair["REQUESTER"], pair["SERVING"]) == ("`recipes`", "`recipes`")
+    assert (pair["TALKS_TO"], pair["ASKING"], pair["SEND_TO"]) == ("its sister project, `recipes`", "`recipes`", "recipes")
+    assert pair["OF_WHOM"] == "the lobster pair `recipes` and `recipes-tools`"
+    assert pair["SISTER_FIRST_SESSION"].startswith("In this tools half, read the sister project's CLAUDE.md first (read only:\n"
+                                                   "   ~/projects/non-code/recipes/CLAUDE.md,")
+    lone = values_for(None, "code", public=True, tools="word-tools", **COMMON)
+    assert (lone["NAME"], lone["SISTER"], lone["NONCODE_PATH"], lone["SELF"], lone["TOOLS"]) == (
+        "", "", "", "word-tools", "word-tools")
+    assert (lone["SERVED"], lone["BACKLOG_PREFIX"], lone["PACKAGE"], lone["KIND"]) == ("any", "WO", "wordtools", "code")
+    assert lone["TOOLS_PATH"] == "~/projects/code/word-tools-code/word-tools"
+    assert lone["FOR_WHOM"] == ("the work done in Squirrel's lobster projects (the ganglia), any of which may ask this "
+                                "claw for a tool")
+    assert (lone["REQUESTER"], lone["SERVING"]) == ("a lobster project", "Squirrel's lobster projects")
+    assert (lone["TALKS_TO"], lone["ASKING"], lone["SEND_TO"]) == ("the lobster projects it serves", "another project", "<project>")
+    assert lone["OF_WHOM"] == "`word-tools`, a claw: a tools project with no sister project, used by any lobster project that asks"
+    assert lone["SISTER_FIRST_SESSION"].startswith("This claw has no sister project: ask Squirrel which lobster projects will use it first")
+    assert lone["CLAWS"] == ""

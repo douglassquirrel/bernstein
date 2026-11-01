@@ -109,15 +109,40 @@ def tools_folders(name, code_dir):
     return locate(name, code_dir, tools_folders_in) or (plain, plain)
 
 
-def find_project(name, non_code_dir, code_dir):
-    """Where a lobster project is, and what lobster.conf says about it."""
+def find_folder(name, non_code_dir, code_dir):
+    """(folder, checkout, the kind its place suggests) for a project, looking in both bases when the name does
+    not say; None if it is in neither. In both: refused."""
     if name.endswith("-tools"):
         folder, checkout = tools_folders(name, code_dir)
-    else:
-        folder = checkout = locate(name, non_code_dir, non_code_folder_in) or os.path.join(non_code_dir, name)
-    if not os.path.isdir(folder):
-        base = code_dir if name.endswith("-tools") else non_code_dir
-        raise ProjectRefused(f"no project {name} in {base} or a folder directly inside it")
+        return (folder, checkout, "code") if os.path.isdir(folder) else None
+    nc = locate(name, non_code_dir, non_code_folder_in)
+    code = locate(name, code_dir, tools_folders_in)
+    if nc and code:
+        raise ProjectRefused(f"{name} is in two places, {nc} and {code[0]}: keep one, or rename the other")
+    if nc:
+        return nc, nc, "non-code"
+    return (code[0], code[1], "code") if code else None
+
+
+def claw_folders(claw, code_dir, conf, key):
+    """(checkout, secrets folder or None) for a claw a non-code project names in lobster.conf; refused if missing."""
+    outer, checkout = tools_folders(claw, code_dir)
+    if not os.path.isdir(checkout):
+        what = "sister tools project" if key == "SISTER" else "claw"
+        raise ProjectRefused(f"the {what} {claw} is not in {code_dir} or a folder directly inside it: make it, "
+                             f"or correct {key} in {conf}")
+    secrets = os.path.join(os.path.dirname(outer), claw + "-secrets")
+    return checkout, secrets if os.path.isdir(secrets) else None
+
+
+def find_project(name, non_code_dir, code_dir):
+    """Where a lobster project is, and what lobster.conf says about it."""
+    found = find_folder(name, non_code_dir, code_dir)
+    if found is None:
+        if name.endswith("-tools"):
+            raise ProjectRefused(f"no project {name} in {code_dir} or a folder directly inside it")
+        raise ProjectRefused(f"no project {name} in {non_code_dir} or {code_dir}, or a folder directly inside either")
+    folder, checkout, placed = found
     conf = os.path.join(folder, "lobster.conf")
     if not os.path.isfile(conf):
         raise ProjectRefused(f"{folder} has no lobster.conf: is it a lobster project?")
@@ -127,7 +152,7 @@ def find_project(name, non_code_dir, code_dir):
         raise ProjectRefused(f"{conf} is not plain UTF-8 text: save it again as UTF-8")
     except OSError as why:
         raise ProjectRefused(f"{conf} cannot be read ({why.strerror}): check its permissions")
-    kind = settings.get("KIND", "code" if name.endswith("-tools") else "non-code")
+    kind = settings.get("KIND", placed)
     if kind not in ("code", "non-code"):
         raise ProjectRefused(f"{conf} says KIND={kind}: it must be code or non-code")
     if not os.path.isfile(os.path.join(folder, "START-HERE.txt")):
@@ -138,16 +163,16 @@ def find_project(name, non_code_dir, code_dir):
             raise ProjectRefused(f"{conf} has no {key}, which START-HERE.txt step 0 reads: "
                                  f"add a line such as {key}={example}")
     sister = settings.get("SISTER", "")
-    if kind == "non-code" and not sister:
-        raise ProjectRefused(f"{conf} has no SISTER, the tools project a non-code session works with: "
-                             f"add a line such as SISTER={name}-tools")
-    sister_checkout = tools_folders(sister, code_dir)[1] if kind == "non-code" else None
-    if sister_checkout and not os.path.isdir(sister_checkout):
-        raise ProjectRefused(f"the sister tools project {sister} is not in {code_dir} or a folder directly "
-                             f"inside it: make it, or correct SISTER in {conf}")
-    return SimpleNamespace(name=name, kind=kind, folder=folder, checkout=checkout, sister=sister,
-                           sister_checkout=sister_checkout, model=settings.get("MODEL", ""),
-                           effort=settings.get("EFFORT", ""))
+    claws = []  # (checkout, secrets folder or None), the home claw first
+    if kind == "non-code":
+        if not sister:
+            raise ProjectRefused(f"{conf} has no SISTER, the tools project a non-code session works with: "
+                                 f"add a line such as SISTER={name}-tools")
+        claws.append(claw_folders(sister, code_dir, conf, "SISTER"))
+        for claw in settings.get("CLAWS", "").split():
+            claws.append(claw_folders(claw, code_dir, conf, "CLAWS"))
+    return SimpleNamespace(name=name, kind=kind, folder=folder, checkout=checkout, sister=sister, claws=claws,
+                           model=settings.get("MODEL", ""), effort=settings.get("EFFORT", ""))
 
 
 def encode(params):
@@ -157,7 +182,9 @@ def encode(params):
 def link_for(project, mail_root, lobster_tools):
     """The documented desktop-app link that opens the project's session with its first line."""
     if project.kind == "non-code":
-        folders = [project.folder, mail_root] + ([project.sister_checkout] if project.sister_checkout else [])
+        folders = [project.folder, mail_root]
+        for checkout, secrets in project.claws:
+            folders += [checkout] + ([secrets] if secrets else [])
         folders.append(lobster_tools)
         q = (f"Read START-HERE.txt in the {project.name} folder (mounted at ~/mnt/{project.name}) and do "
              f"what it says, starting with its step 0 before anything else. If ~/mnt/{project.name} is not "

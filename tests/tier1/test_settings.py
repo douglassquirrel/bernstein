@@ -75,3 +75,31 @@ def test_refuses_a_bad_name_with_the_rule():
 
 def test_an_absolute_path_is_kept_as_it_is():
     assert read_settings("CODE_DIR=/srv/code\n", HOME)["CODE_DIR"] == "/srv/code"
+
+
+def test_claw_takes_a_tools_name_and_refuses_the_pair_flags():
+    o = options_for_new_lobster(["--claw", "word-tools"], read_settings("", HOME))
+    assert (o.claw, o.name, o.claws) == (True, "word-tools", [])
+    for flag in ("--tools", "--non-code-path"):
+        with pytest.raises(SettingsRefused) as refused:
+            options_for_new_lobster(["--claw", "--render-into", "/d", flag, "x", "word-tools"], read_settings("", HOME))
+        assert str(refused.value) == f"{flag} cannot be used with --claw, which has no non-code half"
+    with pytest.raises(SettingsRefused) as refused:
+        options_for_new_lobster(["--claw", "Word Tools"], read_settings("", HOME))
+    assert str(refused.value) == "the claw name Word Tools cannot be used: use only lower-case letters, digits and hyphens"
+
+
+def test_claws_lists_the_further_claws_a_non_code_project_uses_and_needs_render_into():
+    o = options_for_new_lobster(["--render-into", "/d", "--claws", "word-tools  google-docs-tools", "beyond-ai"],
+                                read_settings("", HOME))
+    assert (o.claw, o.claws) == (False, ["word-tools", "google-docs-tools"])
+    assert options_for_new_lobster(["recipes"], read_settings("", HOME)).claws == []
+    with pytest.raises(SettingsRefused) as refused:
+        options_for_new_lobster(["--claws", "word-tools", "recipes"], read_settings("", HOME))
+    assert str(refused.value) == "--claws needs --render-into"
+    with pytest.raises(SettingsRefused) as refused:
+        options_for_new_lobster(["--render-into", "/d", "--claws", "word-tools Bad", "recipes"], read_settings("", HOME))
+    assert str(refused.value) == "the claw name Bad cannot be used: use only lower-case letters, digits and hyphens"
+    with pytest.raises(SettingsRefused) as refused:
+        options_for_new_lobster(["--render-into", "/d", "--claws", "word-tools", "--claw", "x-tools"], read_settings("", HOME))
+    assert str(refused.value) == "--claws cannot be used with --claw, which has no non-code half"

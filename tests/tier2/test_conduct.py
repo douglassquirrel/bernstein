@@ -24,7 +24,7 @@ def test_start_refuses_an_unknown_project_with_exit_3(world):
     world.duty({})
     code, _out, err = world.conduct("start", "recipes")
     assert code == 3
-    assert err == f"conduct: no project recipes in {world.non_code} or a folder directly inside it\n"
+    assert err == f"conduct: no project recipes in {world.non_code} or {world.code}, or a folder directly inside either\n"
 
 
 def test_start_refuses_a_project_without_a_mailbox_with_exit_3(world):
@@ -351,3 +351,59 @@ def test_a_send_that_delivered_but_kept_no_copy_counts_as_sent_and_is_never_repe
     assert code == 0 and out.endswith("recipes has handed over.\n") and looks == [10]
     assert err.startswith("conduct: the Stop message reached recipes, but bernstein's own copy")
     assert len(sent(world)) == 2
+
+
+def claws_world(world):
+    """beyond-ai, home claw book-tools (private), further claws word-tools (public) and google-docs-tools (public, in
+    a subfolder); all three claws lone."""
+    nc = world.project("beyond-ai", "non-code", sister="book-tools", claws=["word-tools", "google-docs-tools"])
+    book = world.project("book-tools", "code", sister="")
+    word = world.project("word-tools", "code", public=True, sister="")
+    docs = world.project("google-docs-tools", "code", public=True, under="writing", sister="")
+    return nc, book, os.path.join(word, "word-tools"), os.path.join(docs, "google-docs-tools")
+
+
+def test_start_connects_the_home_claw_and_every_further_claw_a_non_code_project_uses(world):
+    nc, book, word, docs = claws_world(world)
+    world.duty({"beyond-ai": None})
+    code, out, err = world.conduct("start", "--dry-run", "beyond-ai")
+    assert (code, err) == (0, "")
+    assert link_folder(out) == [nc, world.mail, book, word, docs, os.path.dirname(os.path.join(world.bin, "lobster-mail"))]
+
+
+def test_start_refuses_a_non_code_project_whose_claw_is_missing(world):
+    nc = world.project("beyond-ai", "non-code", sister="book-tools", claws=["word-tools"])
+    world.project("book-tools", "code", sister="")
+    assert refused(world, "beyond-ai") == (
+        3, (f"conduct: the claw word-tools is not in {world.code} or a folder directly inside it: make it, or correct "
+            f"CLAWS in {os.path.join(nc, 'lobster.conf')}\n"))
+
+
+def test_start_connects_a_claws_secrets_folder_beside_it_when_it_has_one(world):
+    nc, book, word, docs = claws_world(world)
+    book_secrets = os.path.join(world.code, "book-tools-secrets")
+    docs_secrets = os.path.join(world.code, "writing", "google-docs-tools-secrets")
+    os.makedirs(book_secrets)
+    os.makedirs(docs_secrets)
+    with open(os.path.join(world.code, "word-tools-secrets"), "w") as f:
+        f.write("a file, not a folder\n")
+    world.duty({"beyond-ai": None})
+    code, out, err = world.conduct("start", "--dry-run", "beyond-ai")
+    assert (code, err) == (0, "")
+    assert link_folder(out) == [nc, world.mail, book, book_secrets, word, docs, docs_secrets,
+                                os.path.dirname(os.path.join(world.bin, "lobster-mail"))]
+
+
+def test_start_finds_a_code_project_by_its_kind_when_its_name_does_not_end_in_tools(world):
+    folder = world.project("transcriber", "code", sister="", under="transcribing")
+    world.duty({"transcriber": None})
+    code, out, err = world.conduct("start", "--dry-run", "transcriber")
+    assert (code, err) == (0, "")
+    assert "claude://code/new?" in out and link_folder(out) == [folder]
+    world.duty({})
+    code, _out, err = world.conduct("start", "recipes")
+    assert (code, err) == (3, (f"conduct: no project recipes in {world.non_code} or {world.code}, or a folder directly "
+                               "inside either\n"))
+    twice = world.project("transcriber", "non-code", sister="x-tools")
+    assert refused(world, "transcriber") == (
+        3, f"conduct: transcriber is in two places, {twice} and {folder}: keep one, or rename the other\n")

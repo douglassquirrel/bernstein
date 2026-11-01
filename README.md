@@ -64,6 +64,7 @@ Each project's first session asks you for its purpose and brief.
 ```
 new-lobster [--dry-run] [--public] [--template DIR] [--non-code-dir DIR] [--code-dir DIR]
             [--model MODEL] [--effort EFFORT] <name>
+new-lobster --claw [--dry-run] [--public] <name>
 ```
 
 - `<name>`: the non-code project's name: lower-case letters, digits and single hyphens, starting
@@ -79,19 +80,38 @@ repository on `main` with a first commit and Backlog (ids `RE-001` on); the mail
 `recipes-tools`; and the tools project's `.venv` with its dev tooling. It never writes over
 anything, never changes the template, never deletes, and never touches GitHub.
 
-**Bringing an existing pair into line.** `new-lobster --render-into DIR [--tools NAME]
-[--non-code-path DIR] [--tools-path DIR] [--public] [--dry-run] <name>` renders the template for a pair
-that already exists, with its own names and folders, into `DIR/non-code/` and `DIR/code/` (the code
-half in one folder, even when public), for you to merge by hand. It writes nothing else: no project
-folder, repository, Backlog or mailbox, and runs no program. `--tools` is the tools project's name
-(default `<name>-tools`; it must end in `-tools`); the two paths default to where `new-lobster` would
-put the pair. `DIR` must not exist (exit 3). With `--dry-run` it lists the files and writes nothing.
-`--tools`, `--non-code-path` and `--tools-path` need `--render-into` (exit 2). For example:
+**Ganglia and claws.** A non-code project (a *ganglion*, where the work is done) has a *home claw*, the
+tools project `new-lobster` makes with it, where its new tools are born; `lobster.conf` names it as
+`SISTER`. It may also use further claws, other tools projects, named in a `CLAWS=word-tools
+google-docs-tools` line. A claw that serves any project and has no non-code half of its own is a
+*lone claw*: `KIND=code` and an empty `SISTER` in its `lobster.conf`.
+
+**Making a lone claw.** `new-lobster --claw [--public] [--dry-run] <name>` makes one tools project
+on its own: its folder (the public layout with `--public`), a git repository with a first commit,
+Backlog, one mailbox and the `.venv`, and prints the commands for its one GitHub repository. The
+name may end in `-tools`. Its first session asks you which projects will use it.
+
+**Bringing an existing pair, or an existing claw, into line.** `new-lobster --render-into DIR [--tools NAME]
+[--claws "NAME NAME"] [--non-code-path DIR] [--tools-path DIR] [--public] [--dry-run] <name>` renders the
+template for a pair that already exists, with its own names, folders and further claws, into
+`DIR/non-code/` and `DIR/code/` (the code half in one folder, even when public), for you to merge by
+hand. `new-lobster --render-into DIR --claw [--tools-path DIR] [--public] <name>` renders the code half
+only, for a lone claw. Either writes nothing else: no project folder, repository, Backlog or mailbox,
+and runs no program. `--tools` is the home claw's name (default `<name>-tools`; it must end in `-tools`);
+the paths default to where `new-lobster` would put the pair. `DIR` must not exist (exit 3). With
+`--dry-run` it lists the files and writes nothing. `--tools`, `--claws`, `--non-code-path` and
+`--tools-path` need `--render-into`, and `--tools`, `--claws` and `--non-code-path` cannot go with
+`--claw` (exit 2). For example:
 
 ```
 new-lobster --render-into /tmp/tv --tools video-tools --public \
     --non-code-path ~/projects/non-code/videos/training-video \
     --tools-path ~/projects/code/videos/video-tools-code/video-tools training-video
+new-lobster --render-into /tmp/ba --tools book-tools --claws "word-tools google-docs-tools" \
+    --non-code-path ~/projects/non-code/writing/beyond-ai \
+    --tools-path ~/projects/code/writing/book-tools-code/book-tools beyond-ai
+new-lobster --render-into /tmp/wt --claw --public \
+    --tools-path ~/projects/code/writing/word-tools-code/word-tools word-tools
 ```
 
 ### Settings
@@ -135,7 +155,8 @@ says to act on bernstein's mail at once. It reads who is on duty with `lobster-m
   pace if `--pace` is given, mails a Start message (follow `START-HERE.txt` from the top, then the
   brief from `--brief FILE`, or wait), and opens the session in the Claude desktop app with the
   documented link: a Claude session for a non-code project, with its folder, the mail root, its
-  tools project and `lobster-tools` connected; a Claude Code session for a tools project. You
+  home claw, each further claw in `CLAWS`, each claw's `<claw>-secrets` folder when there is one
+  beside it, and `lobster-tools` connected; a Claude Code session for a tools project. You
   confirm the folders and send the prefilled first line. For a Claude Code session it reminds you
   to have a bernstein session set its model and effort, which a program cannot do.
 - **`stop`** mails a Stop message: hand over at the next safe point, then stop. `--all` asks every
@@ -145,11 +166,14 @@ says to act on bernstein's mail at once. It reads who is on duty with `lobster-m
 
 `start` checks the project before it sends or opens anything, and refuses (exit 3) with a message
 saying what to fix when any part a lobster project has is missing: the folder (`<CODE_DIR>/<name>`
-or `<CODE_DIR>/<name>-code` for a tools project, `<NON_CODE_DIR>/<name>` otherwise, or the same one
-level down, in a subfolder that keeps related projects together, such as `~/projects/code/videos/`;
-one directly in the folder wins, and the same name in two subfolders is refused), a
-`lobster.conf` it can read as UTF-8 text, a KIND of `code` or `non-code`, `START-HERE.txt`, MODEL
-and EFFORT lines, and, for a non-code project, a SISTER line naming a tools project that exists.
+or `<CODE_DIR>/<name>-code` for a name ending `-tools`; for any other name, `<NON_CODE_DIR>/<name>`
+or, failing that, `<CODE_DIR>/<name>` or `<CODE_DIR>/<name>-code`, so a claw such as `transcriber`
+is found and its kind read from `lobster.conf`; each may be one level down, in a subfolder that
+keeps related projects together, such as `~/projects/code/videos/`; one directly in the folder
+wins, and the same name in two places is refused), a `lobster.conf` it can read as UTF-8 text, a
+KIND of `code` or `non-code`, `START-HERE.txt`, MODEL and EFFORT lines, and, for a non-code
+project, a SISTER line naming a tools project that exists and a CLAWS line naming only ones that
+do.
 A project made before the lobster template needs these before `conduct` can start it.
 
 If `lobster-mail` reports exit 7 (the message was delivered, but bernstein's own copy in `sent/`
@@ -167,15 +191,18 @@ the end of a turn when relaxed. So a Stop to a relaxed session waits until you n
 | 4 | A program failed, or the duty listing could not be read |
 | 5 | `--wait` ran out before the handover arrived |
 
-## conform: what an existing pair lacks
+## conform: what an existing pair or claw lacks
 
 ```
-conform <non-code> <tools>
+conform <non-code> <home claw>
+conform <lone claw>
 ```
 
 `conform` reads an existing pair and lists, half by half, what it lacks against the template; it
-changes nothing. It finds each half where `conduct` looks (one subfolder down included), then checks:
-`lobster.conf` (readable, with the right KIND, SELF and SISTER and a MODEL and EFFORT), `START-HERE.txt`,
+changes nothing. With one name it checks a lone claw alone, as a code half with an empty SISTER,
+and ends "The claw is in line." It finds each half where `conduct` looks (one subfolder down
+included), then checks: `lobster.conf` (readable, with the right KIND, SELF and SISTER and a MODEL
+and EFFORT), for a non-code project every claw in CLAWS present in the code folder, `START-HERE.txt`,
 `.claude/settings.json` with the `lobster-mail start` hook passing this mail root to `--root`,
 `inbox/README.md`, CLAUDE.md having each section the template's CLAUDE.md for that half takes from
 `common/sections/` and each heading naming the pair, the Inbox and Mail sections in the template's
@@ -245,6 +272,11 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
 - 18 October 2026: `new-lobster --render-into` renders the template for an existing pair into a new folder,
   for bringing it into line by hand.
 - 18 October 2026: `conform <non-code> <tools>` lists what an existing pair lacks against the template.
+- 1 November 2026: ganglia and claws. `lobster.conf` may name further claws (`CLAWS=a b`); a tools
+  project with an empty `SISTER` is a lone claw. `new-lobster --claw <name>` makes one; `--render-into`
+  takes `--claw` and `--claws`; `conduct start` connects every claw and its `<claw>-secrets` folder
+  and finds a claw whose name does not end `-tools`; `conform <claw>` checks one alone, and a pair's
+  check lists a claw that is missing.
 - 1 November 2026: `conform` also lists a start hook without this mail root's `--root`, and an Inbox or
   Mail section whose wording is not the template's. A pair that was in line may now show new gaps.
 

@@ -7,8 +7,9 @@ class NameRefused(ValueError):
     """The name cannot be used; the message says why."""
 
 
-def check_name(name):
-    """Return None if `name` can be a lobster project's name; raise NameRefused saying why if not."""
+def check_name(name, claw=False):
+    """Return None if `name` can be a lobster project's name; raise NameRefused saying why if not.
+    A claw (a tools project on its own) may end in -tools; a non-code project's name may not."""
     if name == "":
         raise NameRefused("the name is empty")
     if not re.fullmatch(r"[a-z0-9-]+", name):
@@ -21,5 +22,5 @@ def check_name(name):
         raise NameRefused("the name must not end with a hyphen")
     if "--" in name:
         raise NameRefused("use single hyphens only")
-    if name.endswith("-tools"):
+    if name.endswith("-tools") and not claw:
         raise NameRefused("the name must not end in -tools: new-lobster adds -tools for the tools project")

@@ -131,17 +131,21 @@ class World:
         with open(os.path.join(self.bin, "duty.json"), "w") as f:
             json.dump({"root": self.mail, "mailboxes": listing, "skipped": []}, f)
 
-    def project(self, name, kind, public=False, under="", sister=None):
-        """A project folder with its lobster.conf, as new-lobster makes it, perhaps in a subfolder."""
+    def project(self, name, kind, public=False, under="", sister=None, claws=()):
+        """A project folder with its lobster.conf, as new-lobster makes it, perhaps in a subfolder. A code
+        project with sister "" is a lone claw; a non-code project's claws are its further claws."""
         if kind == "non-code":
-            folder, sister = os.path.join(self.non_code, under, name), sister or name + "-tools"
+            folder = os.path.join(self.non_code, under, name)
+            sister = name + "-tools" if sister is None else sister
         else:
-            sister = sister or name[: -len("-tools")]
+            sister = name[: -len("-tools")] if sister is None else sister
             base = os.path.join(self.code, under)
             folder = os.path.join(base, name + "-code") if public else os.path.join(base, name)
         os.makedirs(os.path.join(folder, name) if public else folder, exist_ok=True)
         with open(os.path.join(folder, "lobster.conf"), "w") as f:
             f.write(f"KIND={kind}\nSELF={name}\nSISTER={sister}\nMODEL=opus\nEFFORT=high\n")
+            if claws:
+                f.write("CLAWS={}\n".format(" ".join(claws)))
         with open(os.path.join(folder, "START-HERE.txt"), "w") as f:
             f.write(f"Start {name}.\n")
         return folder

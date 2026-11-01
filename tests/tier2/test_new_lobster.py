@@ -313,3 +313,78 @@ def test_render_into_refuses_a_template_with_an_unknown_placeholder_and_writes_n
     code, out, err = world.run("--render-into", out_dir, "recipes")
     assert code == 4 and out == "" and err.startswith("new-lobster: the template cannot be used: ")
     assert not os.path.exists(out_dir)
+
+
+def test_render_into_a_claw_renders_the_code_half_only(world, tmp_path):
+    with open(os.path.join(world.template, "common", "lobster.conf"), "a") as f:
+        f.write("SISTER={{SISTER}}\nCLAWS={{CLAWS}}\n")
+    out_dir = str(tmp_path / "rendered")
+    code, out, err = world.run("--render-into", out_dir, "--claw", "--public", "word-tools")
+    assert (code, err) == (0, "")
+    files = tree(out_dir)
+    assert all(rel.startswith("code/") for rel in files), sorted(files)
+    assert files["code/CLAUDE.md"] == b"# word-tools\nword-tools is public.\n"
+    assert files["code/lobster.conf"] == b"KIND=code\nMODEL=opus\nEFFORT=high\nSISTER=\nCLAWS=\n"
+    assert files["code/word-tools.conf.example"] == b"# ~/.word-tools.conf\n" and "code/LICENSE" in files
+    assert out == f"Rendered the template for the claw word-tools into {out_dir}: 9 files. Nothing else was written.\n"
+    assert world.calls() == []
+
+
+def test_render_into_passes_the_further_claws_to_the_template(world, tmp_path):
+    with open(os.path.join(world.template, "non-code", "claws.txt"), "w") as f:
+        f.write("{{CLAWS}}; {{CLAW_NAMES}}; {{SISTER}}\n")
+    out_dir = str(tmp_path / "rendered")
+    code, _out, err = world.run("--render-into", out_dir, "--tools", "book-tools", "--claws",
+                                "word-tools google-docs-tools", "beyond-ai")
+    assert (code, err) == (0, "")
+    assert tree(out_dir)["non-code/claws.txt"] == (
+        b"word-tools google-docs-tools; book-tools, word-tools and google-docs-tools; book-tools\n")
+
+
+def test_a_claw_is_made_on_its_own_with_one_mailbox_and_one_repository(world):
+    code, out, err = world.run("--claw", "--public", "word-tools")
+    assert code == 0, err
+    outer = os.path.join(world.code, "word-tools-code")
+    checkout = os.path.join(outer, "word-tools")
+    assert os.listdir(world.non_code) == [] and os.listdir(world.code) == ["word-tools-code"]
+    outer_files, checkout_files = tree(outer), tree(checkout)
+    assert outer_files["CLAUDE.md"] == b"# word-tools\nword-tools is public.\n"
+    assert outer_files["lobster.conf"] == b"KIND=code\nMODEL=opus\nEFFORT=high\n"
+    assert checkout_files["LICENSE"] == b"MIT 2026\n" and checkout_files["wordtools/__init__.py"] == b""
+    assert os.path.isdir(os.path.join(checkout, "tests", "tier2"))
+    got = [(c["prog"], c["args"][:2], c["cwd"]) for c in world.calls()]
+    assert got == [
+        ("lobster-mail", ["duty", "status"], os.getcwd()),
+        ("git", ["init", "-b"], checkout),
+        ("git", ["config", "user.name"], checkout),
+        ("git", ["config", "user.email"], checkout),
+        ("backlog", ["init", "word-tools"], outer),
+        ("lobster-mail", ["init", "--root"], os.getcwd()),
+        ("git", ["add", "--"], checkout),
+        ("git", ["commit", "-q"], checkout),
+        ("python3", ["-m", "venv"], checkout),
+        ("pip", ["install", "-q"], checkout),
+    ]
+    backlog = next(c["args"] for c in world.calls() if c["prog"] == "backlog")
+    assert backlog[-4:] == ["--task-prefix", "wo", "--zero-padded-ids", "3"]
+    commit = next(c["args"] for c in world.calls() if c["prog"] == "git" and c["args"][:1] == ["commit"])
+    assert commit[-1] == "Start the claw word-tools from the lobster-project template"
+    assert f"Made the claw word-tools: {outer}\n" in out and f"Mailbox word-tools in {world.mail}\n" in out
+    assert "Create one repository on github.com, empty:\n  douglassquirrel/word-tools (public)\n" in out
+    assert f"git -C '{checkout}' push -u origin main" in out and "recipes" not in out
+    assert out.endswith("Its first session asks you which lobster projects will use it, and for its purpose.\n")
+
+
+def test_a_claw_dry_run_and_its_refusals_name_only_the_claw(world):
+    code, out, err = world.run("--claw", "--dry-run", "word-tools")
+    assert (code, err) == (0, "")
+    assert out == (f"Make the claw word-tools: {os.path.join(world.code, 'word-tools')}\n"
+                   f"Then: git init -b main; backlog init; lobster-mail init word-tools in {world.mail}; a first commit; "
+                   "the .venv.\nDry run: nothing was made.\n")
+    assert os.listdir(world.code) == [] and [c["prog"] for c in world.calls()] == ["lobster-mail"]
+    world.mailboxes(["word-tools"])
+    code, _out, err = world.run("--claw", "word-tools")
+    assert (code, err) == (3, f"new-lobster: the mailbox word-tools already exists in {world.mail}; nothing was made\n")
+    world.mailboxes(["word"])
+    code, _out, err = world.run("--claw", "word-tools")
+    assert code == 0, err

@@ -48,7 +48,7 @@ def test_find_project_for_each_kind_and_layout(tmp_path):
     nc = make(tmp_path, "non-code/recipes", "non-code", "recipes-tools")
     tools = make(tmp_path, "code/recipes-tools", "code", "recipes")
     p = find_project("recipes", str(tmp_path / "non-code"), str(tmp_path / "code"))
-    assert (p.name, p.kind, p.folder, p.sister, p.sister_checkout) == ("recipes", "non-code", nc, "recipes-tools", tools)
+    assert (p.name, p.kind, p.folder, p.sister, p.claws) == ("recipes", "non-code", nc, "recipes-tools", [(tools, None)])
     q = find_project("recipes-tools", str(tmp_path / "non-code"), str(tmp_path / "code"))
     assert (q.kind, q.folder, q.checkout) == ("code", tools, tools)
 
@@ -60,13 +60,14 @@ def test_find_project_for_a_public_tools_project(tmp_path):
     q = find_project("pub-tools", str(tmp_path / "non-code"), str(tmp_path / "code"))
     assert (q.folder, q.checkout) == (outer, os.path.join(outer, "pub-tools"))
     p = find_project("pub", str(tmp_path / "non-code"), str(tmp_path / "code"))
-    assert p.sister_checkout == os.path.join(outer, "pub-tools")
+    assert p.claws == [(os.path.join(outer, "pub-tools"), None)]
 
 
 def test_find_project_refuses_a_project_with_no_folder_or_no_settings(tmp_path):
     with pytest.raises(ProjectRefused) as refused:
         find_project("nope", str(tmp_path / "non-code"), str(tmp_path / "code"))
-    assert str(refused.value) == "no project nope in %s or a folder directly inside it" % (tmp_path / "non-code")
+    assert str(refused.value) == (f"no project nope in {tmp_path / 'non-code'} or {tmp_path / 'code'}, or a folder "
+                                  "directly inside either")
     os.makedirs(tmp_path / "non-code" / "bare")
     with pytest.raises(ProjectRefused) as refused:
         find_project("bare", str(tmp_path / "non-code"), str(tmp_path / "code"))
@@ -80,7 +81,7 @@ def test_the_link_for_a_non_code_project_connects_its_four_folders(tmp_path):
     link = link_for(p, "/m/mail", "/l/lobster-tools")
     enc = lambda s: s.replace("/", "%2F")
     assert link == ("claude://cowork/new?folder=" + enc(p.folder) + "&folder=%2Fm%2Fmail"
-                    "&folder=" + enc(p.sister_checkout) + "&folder=%2Fl%2Flobster-tools"
+                    "&folder=" + enc(p.claws[0][0]) + "&folder=%2Fl%2Flobster-tools"
                     "&q=" + quote("Read START-HERE.txt in the recipes folder (mounted at ~/mnt/recipes) and do "
                                   "what it says, starting with its step 0 before anything else. If ~/mnt/recipes "
                                   "is not there, say \"the app opened me without the recipes folder\" and stop."))
