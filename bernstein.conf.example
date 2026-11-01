@@ -8,7 +8,7 @@
 # Where new non-code projects and new code projects go.
 #NON_CODE_DIR=~/projects/non-code
 #CODE_DIR=~/projects/code
-# The model and effort every session of a new project is asked to confirm first.
+# The least model and effort every session of a new project is asked to confirm first.
 #MODEL=opus
 #EFFORT=high
 # lobster-mail, and the mail root it uses.
