@@ -143,8 +143,10 @@ the project's first session to complete.
 ## conduct: starting and stopping a project's session
 
 ```
-conduct start <project> [--brief FILE] [--pace eager|normal|relaxed] [--dry-run]
-conduct stop  <project> | --all  [--wait SECONDS] [--dry-run]
+conduct start   <project> [--brief FILE] [--pace eager|normal|relaxed] [--dry-run]
+conduct stop    <project> | --all  [--wait SECONDS] [--dry-run]
+conduct dormant <project> | --all  [--dry-run]
+conduct wake    <project> | --all  [--dry-run]
 ```
 
 `conduct` talks to a lobster project's session by mail, as `bernstein`; each project's guidance
@@ -162,7 +164,18 @@ says to act on bernstein's mail at once. It reads who is on duty with `lobster-m
 - **`stop`** mails a Stop message: hand over at the next safe point, then stop. `--all` asks every
   session on duty except bernstein's. `--wait SECONDS` waits for each handover, looking every 10
   seconds.
-- **`--dry-run`** shows the message and the link, and sends and opens nothing.
+- **`dormant`** puts a running session to sleep without a handover, for a pause such as overnight:
+  it mails a Dormant message (keep running, keep everything as it is, do not hand over, stop watching
+  mail and run no mail checks; when Squirrel next speaks to you, set the pace back to normal and
+  watch again) and then sets the mailbox's pace to `relaxed`, at which a session reads mail only at
+  the end of a turn. Only sessions fresh on duty; `--all` is every one but bernstein's. The session's
+  duty goes stale after 45 minutes, which is what dormant means.
+- **`wake`** is the way back when Squirrel would rather not speak to each session: it sets the pace to
+  `normal` and mails a Wake message (watch mail again, read what arrived, carry on). A dormant
+  session reads it at the end of its next turn, so it takes effect when the session is next used;
+  stale duties count, since a dormant session's does go stale.
+- **`--dry-run`** shows the message and the link, and sends and opens nothing (for `dormant` and
+  `wake`, sets nothing either).
 
 `start` checks the project before it sends or opens anything, and refuses (exit 3) with a message
 saying what to fix when any part a lobster project has is missing: the folder (`<CODE_DIR>/<name>`
@@ -273,6 +286,8 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
 - 18 October 2026: `new-lobster --render-into` renders the template for an existing pair into a new folder,
   for bringing it into line by hand.
 - 18 October 2026: `conform <non-code> <tools>` lists what an existing pair lacks against the template.
+- 1 November 2026: `conduct dormant` and `conduct wake`: a session sleeps without a handover (no mail
+  checks, pace `relaxed`) and is woken by Squirrel speaking to it, or by `wake`.
 - 1 November 2026: ganglia and claws. `lobster.conf` may name further claws (`CLAWS=a b`); a tools
   project with an empty `SISTER` is a lone claw. `new-lobster --claw <name>` makes one; `--render-into`
   takes `--claw` and `--claws`; `conduct start` connects every claw and its `<claw>-secrets` folder

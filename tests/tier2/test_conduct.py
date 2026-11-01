@@ -407,3 +407,74 @@ def test_start_finds_a_code_project_by_its_kind_when_its_name_does_not_end_in_to
     twice = world.project("transcriber", "non-code", sister="x-tools")
     assert refused(world, "transcriber") == (
         3, f"conduct: transcriber is in two places, {twice} and {folder}: keep one, or rename the other\n")
+
+
+def paces(world):
+    return [c["args"] for c in world.calls() if c["prog"] == "lobster-mail" and c["args"][:1] == ["pace"]]
+
+
+def test_dormant_sends_the_dormant_message_then_sets_the_pace_relaxed_for_each_session_on_duty(world):
+    world.duty({"bernstein": "fresh", "recipes": "fresh", "audio": "stale", "video-tools": "fresh", "old": None})
+    code, out, err = world.conduct("dormant", "--all")
+    assert (code, err) == (0, "")
+    assert [m["args"][4] for m in sent(world)] == ["recipes", "video-tools"]
+    assert sent(world)[0]["args"][6] == "Dormant: stop watching mail until Squirrel is back"
+    assert sent(world)[0]["stdin"].startswith("Dormant (from bernstein, 18 October 2026).")
+    assert paces(world) == [["pace", "--as", "recipes", "relaxed", "--root", world.mail],
+                            ["pace", "--as", "video-tools", "relaxed", "--root", world.mail]]
+    lm = [c["args"][:1] + c["args"][2:4] for c in world.calls() if c["prog"] == "lobster-mail"]
+    assert lm[1:] == [["send", "bernstein", "--to"], ["pace", "recipes", "relaxed"],
+                      ["send", "bernstein", "--to"], ["pace", "video-tools", "relaxed"]]
+    assert out == ("Sent the Dormant message to recipes and set its pace to relaxed.\n"
+                   "Sent the Dormant message to video-tools and set its pace to relaxed.\n")
+
+
+def test_dormant_for_one_project_with_nobody_on_duty_sends_nothing(world):
+    world.duty({"recipes": "stale"})
+    code, out, _err = world.conduct("dormant", "recipes")
+    assert (code, out) == (0, "Nobody is on duty for recipes: nothing to make dormant.\n")
+    assert sent(world) == [] and paces(world) == []
+    code, out, _err = world.conduct("dormant", "--all")
+    assert (code, out) == (0, "Nobody is on duty anywhere but bernstein: nothing to make dormant.\n")
+
+
+def test_dormant_dry_run_shows_the_message_and_changes_nothing(world):
+    world.duty({"recipes": "fresh"})
+    code, out, _err = world.conduct("dormant", "--dry-run", "recipes")
+    assert code == 0
+    assert "Would send to recipes, as bernstein, subject \"Dormant: stop watching mail until Squirrel is back\"" in out
+    assert "Dormant (from bernstein, 18 October 2026)." in out
+    assert out.endswith("Would set the pace of recipes to relaxed.\nDry run: nothing was sent or set.\n")
+    assert sent(world) == [] and paces(world) == []
+
+
+def test_dormant_needs_a_project_or_all_and_refuses_an_unknown_mailbox(world):
+    assert world.conduct("dormant")[0] == 2
+    world.duty({})
+    code, _out, err = world.conduct("dormant", "recipes")
+    assert code == 3 and err == f"conduct: there is no mailbox recipes in {world.mail}\n"
+
+
+def test_wake_sets_the_pace_normal_then_sends_the_wake_message(world):
+    world.duty({"recipes": "stale", "video-tools": "fresh", "old": None})
+    code, out, err = world.conduct("wake", "recipes")
+    assert (code, err) == (0, "")
+    assert paces(world) == [["pace", "--as", "recipes", "normal", "--root", world.mail]]
+    (mail,) = sent(world)
+    assert mail["args"][4:7] == ["recipes", "--subject", "Wake: watch mail again"]
+    assert mail["stdin"].startswith("Wake (from bernstein, 18 October 2026).")
+    assert out == "Set the pace of recipes to normal and sent the Wake message.\n"
+    code, out, _err = world.conduct("wake", "--all")
+    assert code == 0 and [m["args"][4] for m in sent(world)[1:]] == ["recipes", "video-tools"]
+
+
+def test_wake_dry_run_shows_the_message_and_sets_nothing(world):
+    world.duty({"recipes": "stale"})
+    code, out, _err = world.conduct("wake", "--dry-run", "recipes")
+    assert code == 0
+    assert "Would set the pace of recipes to normal, then send to it, as bernstein, subject \"Wake: watch mail again\"" in out
+    assert "Wake (from bernstein, 18 October 2026)." in out and out.endswith("Dry run: nothing was sent or set.\n")
+    assert sent(world) == [] and paces(world) == []
+    world.duty({"recipes": None})
+    code, out, _err = world.conduct("wake", "recipes")
+    assert (code, out) == (0, "Nobody is on duty for recipes: nothing to wake.\n")

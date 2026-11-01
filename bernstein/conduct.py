@@ -56,6 +56,25 @@ def stop_message(today):
             "chat that bernstein asked you to hand over, and do nothing more unless he says.\n")
 
 
+def dormant_message(project, today):
+    """The body of the Dormant message: keep running, stop watching mail, no handover."""
+    return (f"Dormant (from bernstein, {day(today)}).\n\n"
+            "Squirrel has asked this session to go dormant until he comes back: keep running, keep\n"
+            "everything as it is, and do not hand over. Stop watching mail now (stop the background wait, or\n"
+            "the check-in chain) and run no mail checks; this mailbox's pace is being set to relaxed, so\n"
+            f"lobster-mail pace --as {project} shows it. When Squirrel next speaks to you, run\n"
+            f"lobster-mail pace --as {project} normal, start watching again as that prints, read the mail that\n"
+            "arrived meanwhile, and tell him you are back. Nothing else changes.\n")
+
+
+def wake_message(project, today):
+    """The body of the Wake message: the pace is normal again, watch mail again."""
+    return (f"Wake (from bernstein, {day(today)}).\n\n"
+            f"Squirrel is back: this mailbox's pace is normal again. Run lobster-mail pace --as {project} and\n"
+            "do what it prints (start the background wait, or the check-in chain), read the mail that\n"
+            "arrived while you were dormant, report it, and carry on.\n")
+
+
 def read_conf_file(path):
     found = {}
     with open(path, encoding="utf-8") as f:
@@ -205,7 +224,9 @@ def parser():
     p = Parser(prog="conduct", description="Start a lobster project's session, or ask a running one to "
                "hand over and stop, by mail as bernstein.",
                epilog="conduct start <project> [--brief FILE] [--pace LEVEL] [--dry-run]\n"
-                      "conduct stop <project> | --all [--wait SECONDS] [--dry-run]",
+                      "conduct stop <project> | --all [--wait SECONDS] [--dry-run]\n"
+                      "conduct dormant <project> | --all [--dry-run]\n"
+                      "conduct wake <project> | --all [--dry-run]",
                formatter_class=argparse.RawDescriptionHelpFormatter)
     verbs = p.add_subparsers(dest="verb", parser_class=Parser)
     s = verbs.add_parser("start", help="send a Start message and open the project's session")
@@ -218,6 +239,16 @@ def parser():
     t.add_argument("--all", action="store_true", help="every session on duty except bernstein's")
     t.add_argument("--wait", type=int, metavar="SECONDS", help="wait this long for the handover")
     t.add_argument("--dry-run", action="store_true", help="show the message; send nothing")
+    d = verbs.add_parser("dormant", help="ask a running session to stop watching mail but keep running, "
+                         "with no handover, until Squirrel is back")
+    d.add_argument("project", nargs="?")
+    d.add_argument("--all", action="store_true", help="every session on duty except bernstein's")
+    d.add_argument("--dry-run", action="store_true", help="show the message; send and set nothing")
+    w = verbs.add_parser("wake", help="set a dormant session's pace back to normal and ask it to watch mail again")
+    w.add_argument("project", nargs="?")
+    w.add_argument("--all", action="store_true", help="every mailbox with a session on duty, fresh or stale, "
+                   "except bernstein's")
+    w.add_argument("--dry-run", action="store_true", help="show the message; send and set nothing")
     return p
 
 
@@ -296,8 +327,7 @@ def start(a, s, env, today, out, err, sleep):
         out.write("Dry run: nothing was sent or opened.\n")
         return
     if a.pace:
-        run([s["LOBSTER_MAIL"], "pace", "--as", a.project, a.pace, "--root", s["MAIL_ROOT"]], env,
-            f"lobster-mail pace {a.pace}")
+        pace(s, env, a.project, a.pace)
     send(s, env, a.project, f"Start: {a.project}", body, err)
     out.write(f"Sent the Start message to {a.project}.\n")
     run(["open", link], env, "open")
@@ -350,6 +380,69 @@ def stop(a, s, env, today, out, err, sleep):
         waited += WAIT_STEP
 
 
+def targets_for(a, s, env, sleep, what, stale_too=False):
+    """The mailboxes a stop-like verb acts on, or None after saying there is nothing to do."""
+    if a.all == (a.project is not None):
+        raise Stop(2, "name one project, or give --all")
+    boxes = listing(s, env, sleep)
+
+    def on_duty(entry):
+        return entry.get("duty") is not None if stale_too else fresh(entry)
+
+    if a.all:
+        found = [n for n, m in boxes.items() if n != "bernstein" and on_duty(m)]
+        if not found:
+            return None, f"Nobody is on duty anywhere but bernstein: nothing to {what}.\n"
+        return found, None
+    if a.project not in boxes:
+        raise Stop(3, f"there is no mailbox {a.project} in {s['MAIL_ROOT']}")
+    if not on_duty(boxes[a.project]):
+        return None, f"Nobody is on duty for {a.project}: nothing to {what}.\n"
+    return [a.project], None
+
+
+def pace(s, env, name, level):
+    run([s["LOBSTER_MAIL"], "pace", "--as", name, level, "--root", s["MAIL_ROOT"]], env, f"lobster-mail pace {level}")
+
+
+def dormant(a, s, env, today, out, err, sleep):
+    """Send each session on duty the Dormant message, then set its pace to relaxed."""
+    found, nothing = targets_for(a, s, env, sleep, "make dormant")
+    if nothing:
+        out.write(nothing)
+        return
+    if a.dry_run:
+        for name in found:
+            out.write(f"Would send to {name}, as bernstein, subject \"Dormant: stop watching mail until Squirrel is "
+                      f"back\":\n\n{dormant_message(name, today)}\n")
+            out.write(f"Would set the pace of {name} to relaxed.\n")
+        out.write("Dry run: nothing was sent or set.\n")
+        return
+    for name in found:
+        send(s, env, name, "Dormant: stop watching mail until Squirrel is back", dormant_message(name, today), err)
+        pace(s, env, name, "relaxed")
+        out.write(f"Sent the Dormant message to {name} and set its pace to relaxed.\n")
+
+
+def wake(a, s, env, today, out, err, sleep):
+    """Set each session's pace back to normal, then send the Wake message. A dormant session's duty may be
+    stale, so stale duties count too."""
+    found, nothing = targets_for(a, s, env, sleep, "wake", stale_too=True)
+    if nothing:
+        out.write(nothing)
+        return
+    if a.dry_run:
+        for name in found:
+            out.write(f"Would set the pace of {name} to normal, then send to it, as bernstein, subject \"Wake: watch "
+                      f"mail again\":\n\n{wake_message(name, today)}\n")
+        out.write("Dry run: nothing was sent or set.\n")
+        return
+    for name in found:
+        pace(s, env, name, "normal")
+        send(s, env, name, "Wake: watch mail again", wake_message(name, today), err)
+        out.write(f"Set the pace of {name} to normal and sent the Wake message.\n")
+
+
 def main(argv, env, today, out, err, sleep):
     """Run conduct; return its exit code."""
     if argv[:1] in (["-h"], ["--help"]) or (len(argv) == 2 and argv[1] in ("-h", "--help")):
@@ -370,8 +463,8 @@ def main(argv, env, today, out, err, sleep):
         except SettingsRefused as why:
             raise Stop(2, f"{why} (conduct --help shows the form)")
         if a.verb is None:
-            raise Stop(2, "say start or stop (conduct --help shows the form)")
-        (start if a.verb == "start" else stop)(a, s, env, today, out, err, sleep)
+            raise Stop(2, "say start, stop, dormant or wake (conduct --help shows the form)")
+        {"start": start, "stop": stop, "dormant": dormant, "wake": wake}[a.verb](a, s, env, today, out, err, sleep)
     except Stop as stopped:
         err.write(f"conduct: {stopped.message}\n")
         return stopped.code

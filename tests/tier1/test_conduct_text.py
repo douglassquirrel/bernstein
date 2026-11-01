@@ -95,3 +95,24 @@ def test_the_link_for_a_tools_project_opens_claude_code_in_its_folder(tmp_path):
             "This session must work in " + q.folder + ". If your working folder is anything else, say \"the app "
             "opened me in the wrong folder\" and stop. Otherwise read START-HERE.txt there and do what it says, "
             "starting with its step 0 before anything else."))
+
+
+def test_the_dormant_message_says_keep_running_stop_watching_and_how_to_wake():
+    from bernstein.conduct import dormant_message
+    assert dormant_message("recipes", DAY) == (
+        "Dormant (from bernstein, 18 October 2026).\n\n"
+        "Squirrel has asked this session to go dormant until he comes back: keep running, keep\n"
+        "everything as it is, and do not hand over. Stop watching mail now (stop the background wait, or\n"
+        "the check-in chain) and run no mail checks; this mailbox's pace is being set to relaxed, so\n"
+        "lobster-mail pace --as recipes shows it. When Squirrel next speaks to you, run\n"
+        "lobster-mail pace --as recipes normal, start watching again as that prints, read the mail that\n"
+        "arrived meanwhile, and tell him you are back. Nothing else changes.\n")
+
+
+def test_the_wake_message_says_to_watch_again():
+    from bernstein.conduct import wake_message
+    assert wake_message("recipes", DAY) == (
+        "Wake (from bernstein, 18 October 2026).\n\n"
+        "Squirrel is back: this mailbox's pace is normal again. Run lobster-mail pace --as recipes and\n"
+        "do what it prints (start the background wait, or the check-in chain), read the mail that\n"
+        "arrived while you were dormant, report it, and carry on.\n")
