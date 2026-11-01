@@ -6,7 +6,10 @@ PLAN.md (Settled 55) is the specification. Exit codes: 0 nothing missing, 1 some
 
 import argparse
 import datetime
+import json
 import os
+import re
+import shlex
 
 from bernstein.conduct import (
     ProjectRefused,
@@ -21,6 +24,28 @@ from bernstein.settings import SettingsRefused, read_settings
 
 # A template heading with one of these names the pair, so every pair's CLAUDE.md must have it.
 PAIR_NAMES = {"NAME", "TOOLS", "SELF", "SISTER"}
+# The shared sections whose wording the template fixes; the others carry a date or a project's own lines.
+FIXED_WORDING = {"sections/inbox.md", "sections/mail.md"}
+
+
+def hook_has_root(text, root):
+    """Whether a hook's JSON text passes this mail root to --root, as one shell word."""
+    word = json.dumps(shlex.quote(root), ensure_ascii=False)[1:-1]
+    return re.search(rf' --root {re.escape(word)}(?=[\s"])', text) is not None
+
+
+def sections_of(text):
+    """Each "## " section as {heading: its lines}, leaving out blank lines and a closing ---."""
+    found, lines = {}, []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            lines = found.setdefault(line, [])
+        elif line.strip():
+            lines.append(line)
+    for lines in found.values():
+        while lines and lines[-1] == "---":
+            lines.pop()
+    return found
 
 
 def find(name, kind, s):
@@ -46,34 +71,42 @@ def conf_gaps(conf, wanted):
     return gaps
 
 
-def required_headings(s, kind, non_code, tools, public, home):
-    """The headings a half's CLAUDE.md must have: every heading of each section the template's CLAUDE.md
-    for that half includes from common/sections/, and every heading of its own that names the pair."""
+def required_sections(s, kind, non_code, tools, public, home):
+    """(headings, wording) for a half's CLAUDE.md. Headings: every heading of each section the template's
+    CLAUDE.md for that half includes from common/sections/, and every heading of its own that names the
+    pair. Wording: {heading: lines} of the included sections in FIXED_WORDING, filled."""
     values = values_for(non_code, kind, model=s["MODEL"], effort=s["EFFORT"], non_code_dir=s["NON_CODE_DIR"],
                         code_dir=s["CODE_DIR"], mail_root=s["MAIL_ROOT"], lobster_mail=s["LOBSTER_MAIL"],
                         public=public, today=datetime.date.today(), home=home, tools=tools)
     where = f"{kind}/CLAUDE.md"
     with open(os.path.join(s["TEMPLATE"], kind, "CLAUDE.md"), encoding="utf-8") as f:
         raw = f.read()
-    headings = []
+    headings, wording = [], {}
     for line in raw.splitlines():
         include = INCLUDE.fullmatch(line)
         if include:
-            section = os.path.join(s["TEMPLATE"], "common", fill(include.group(1), values, where))
+            name = fill(include.group(1), values, where)
+            section = os.path.join(s["TEMPLATE"], "common", name)
             with open(section, encoding="utf-8") as f:
-                headings += [fill(h, values, section) for h in f.read().splitlines() if h.startswith("## ")]
+                text = f.read()
+            headings += [fill(h, values, section) for h in text.splitlines() if h.startswith("## ")]
+            if name in FIXED_WORDING:
+                wording.update(sections_of(fill(text, values, section)))
         elif line.startswith("## ") and set(PLACEHOLDER.findall(line)) & PAIR_NAMES:
             headings.append(fill(line, values, where))
-    return headings
+    return headings, wording
 
 
-def claude_gaps(folder, headings):
+def claude_gaps(folder, headings, wording):
     claude = os.path.join(folder, "CLAUDE.md")
     if not os.path.isfile(claude):
         return ["CLAUDE.md"]
     with open(claude, encoding="utf-8", errors="replace") as f:
-        have = set(f.read().splitlines())
-    return [f'the section "{h}" in CLAUDE.md' for h in headings if h not in have]
+        text = f.read()
+    have = sections_of(text)
+    return ([f'the section "{h}" in CLAUDE.md' for h in headings if h not in have]
+            + [f'the template\'s wording of the section "{h}" in CLAUDE.md'
+               for h, lines in wording.items() if h in have and have[h] != lines])
 
 
 def gaps_of(name, kind, sister, found, s):
@@ -95,10 +128,12 @@ def gaps_of(name, kind, sister, found, s):
             text = f.read()
         if "lobster-mail" not in text or " start --project" not in text.replace('\\"', ""):
             gaps.append("the lobster-mail start hook in .claude/settings.json")
+        elif not hook_has_root(text, s["MAIL_ROOT"]):
+            gaps.append(f"--root {shlex.quote(s['MAIL_ROOT'])} in the lobster-mail start hook in .claude/settings.json")
     if not os.path.isfile(os.path.join(folder, "inbox", "README.md")):
         gaps.append("inbox/README.md")
     non_code, tools = (name, sister) if kind == "non-code" else (sister, name)
-    gaps += claude_gaps(folder, required_headings(s, kind, non_code, tools, found[0] != found[1], s["HOME"]))
+    gaps += claude_gaps(folder, *required_sections(s, kind, non_code, tools, found[0] != found[1], s["HOME"]))
     checkout = found[1]
     if checkout != folder:
         for rel in OUTER_FILES + OUTER_FOLDERS:

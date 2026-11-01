@@ -176,11 +176,12 @@ conform <non-code> <tools>
 `conform` reads an existing pair and lists, half by half, what it lacks against the template; it
 changes nothing. It finds each half where `conduct` looks (one subfolder down included), then checks:
 `lobster.conf` (readable, with the right KIND, SELF and SISTER and a MODEL and EFFORT), `START-HERE.txt`,
-`.claude/settings.json` with the `lobster-mail start` hook, `inbox/README.md`, CLAUDE.md having each
-section the template's CLAUDE.md for that half takes from `common/sections/` and each heading naming
-the pair, a git repository, `backlog/`, the mailbox, and, for a public tools project, none of the
-outer files (CLAUDE.md, PLAN.md, DIARY.md, START-HERE.txt, `lobster.conf`, `inbox/`, `.claude/`)
-inside the checkout. For example, for a pair brought into line:
+`.claude/settings.json` with the `lobster-mail start` hook passing this mail root to `--root`,
+`inbox/README.md`, CLAUDE.md having each section the template's CLAUDE.md for that half takes from
+`common/sections/` and each heading naming the pair, the Inbox and Mail sections in the template's
+exact wording (blank lines aside), a git repository, `backlog/`, the mailbox, and, for a public tools
+project, none of the outer files (CLAUDE.md, PLAN.md, DIARY.md, START-HERE.txt, `lobster.conf`,
+`inbox/`, `.claude/`) inside the checkout. For example, for a pair brought into line:
 
 ```
 $ ./conform training-video video-tools
@@ -244,6 +245,8 @@ Manual check against the real programs (Tier 3): point `BERNSTEIN_CONF` at a set
 - 18 October 2026: `new-lobster --render-into` renders the template for an existing pair into a new folder,
   for bringing it into line by hand.
 - 18 October 2026: `conform <non-code> <tools>` lists what an existing pair lacks against the template.
+- 1 November 2026: `conform` also lists a start hook without this mail root's `--root`, and an Inbox or
+  Mail section whose wording is not the template's. A pair that was in line may now show new gaps.
 
 ## Contributing
 

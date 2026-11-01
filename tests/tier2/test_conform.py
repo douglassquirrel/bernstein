@@ -1,4 +1,5 @@
 import os
+import shlex
 
 SECTIONS = {
     "common/sections/rule.md": "## Mail\n\nMail for {{SELF}}.\n",
@@ -8,7 +9,12 @@ SECTIONS = {
     "code/CLAUDE.md": "# {{TOOLS}}\n\n## The sister project: {{NAME}}\n\n{{> sections/repo-{{VISIBILITY}}.md}}\n",
 }
 
-HOOK = '{"command": "\\"$HOME/l/lobster-mail\\" start --project \\"$CLAUDE_PROJECT_DIR\\""}\n'
+BARE_HOOK = '{"command": "\\"$HOME/l/lobster-mail\\" start --project \\"$CLAUDE_PROJECT_DIR\\""}\n'
+
+
+def hook_for(root):
+    """The hook as the template writes it, with --root naming this mail root as one shell word."""
+    return BARE_HOOK.replace('DIR\\""', f'DIR\\" --root {shlex.quote(root)}"')
 
 
 def lobster_template(world):
@@ -26,9 +32,9 @@ def write(folder, files):
             f.write(text)
 
 
-def half_in_line(folder, kind, self_, sister, claude):
+def half_in_line(world, folder, kind, self_, sister, claude):
     write(folder, {"lobster.conf": f"KIND={kind}\nSELF={self_}\nSISTER={sister}\nMODEL=opus\nEFFORT=high\n",
-                   "START-HERE.txt": "Start.\n", ".claude/settings.json": HOOK, "inbox/README.md": "Inbox.\n",
+                   "START-HERE.txt": "Start.\n", ".claude/settings.json": hook_for(world.mail), "inbox/README.md": "Inbox.\n",
                    "CLAUDE.md": claude})
     os.makedirs(os.path.join(folder, "backlog"))
 
@@ -37,11 +43,11 @@ def pair_in_line(world, public=False, under=""):
     """A pair that has everything the template gives it: (non-code folder, tools folder, tools checkout)."""
     lobster_template(world)
     nc = os.path.join(world.non_code, under, "recipes")
-    half_in_line(nc, "non-code", "recipes", "recipes-tools",
+    half_in_line(world, nc, "non-code", "recipes", "recipes-tools",
                  "# recipes\n\n## The pair: recipes and recipes-tools\n\n## Mail\n\nOurs.\n")
     os.makedirs(os.path.join(nc, ".git"))
     outer = os.path.join(world.code, under, "recipes-tools-code" if public else "recipes-tools")
-    half_in_line(outer, "code", "recipes-tools", "recipes",
+    half_in_line(world, outer, "code", "recipes-tools", "recipes",
                  "# recipes-tools\n\n## The sister project: recipes\n\n## Inbox\n\nOurs.\n")
     checkout = os.path.join(outer, "recipes-tools") if public else outer
     os.makedirs(os.path.join(checkout, ".git"))
@@ -77,6 +83,18 @@ def test_missing_lobster_files_are_each_listed_and_the_exit_is_1(world):
                    "  missing: the lobster-mail start hook in .claude/settings.json\n"
                    "  missing: inbox/README.md\n"
                    "5 things to bring into line.\n")
+
+
+def test_the_hook_must_pass_this_mail_root_and_a_longer_path_is_not_it(world):
+    nc, outer, _checkout = pair_in_line(world)
+    write(nc, {".claude/settings.json": BARE_HOOK})
+    write(outer, {".claude/settings.json": hook_for(world.mail + "2")})
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    wanted = f"  missing: --root {shlex.quote(world.mail)} in the lobster-mail start hook in .claude/settings.json\n"
+    assert code == 1
+    assert out == (f"recipes (non-code): {nc}\n{wanted}"
+                   f"recipes-tools (code): {outer}\n{wanted}"
+                   "2 things to bring into line.\n")
 
 
 def test_a_lobster_conf_with_wrong_or_missing_values_says_which(world):
@@ -191,5 +209,71 @@ def test_a_heading_with_a_date_or_other_value_is_not_required_only_one_naming_th
     pair_in_line(world)
     with open(os.path.join(world.template, "non-code", "CLAUDE.md"), "a") as f:
         f.write("\n## Where things stand (updated {{DATE}})\n\n## Run by {{MODEL}}\n")
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert (code, out.splitlines()[-1]) == (0, "Both halves are in line.")
+
+
+WORDED = {
+    "common/sections/inbox.md": "## Inbox\n\nDrop files for {{SELF}}.\n",
+    "common/sections/mail.md": "## Mail\n\nMail for {{SELF}}, from {{SISTER}}.\n\n### Reading\n\nRead it.\n",
+    "non-code/CLAUDE.md": "# {{NAME}}\n\n{{> sections/inbox.md}}\n\n{{> sections/mail.md}}\n\n## Own\n",
+    "code/CLAUDE.md": "# {{TOOLS}}\n\n---\n\n{{> sections/inbox.md}}\n\n---\n\n{{> sections/mail.md}}\n\n---\n\n## Own\n",
+}
+
+
+def pair_with_worded_sections(world):
+    """A pair in line with a template whose Inbox and Mail sections are the real files' names."""
+    nc, outer, checkout = pair_in_line(world)
+    write(world.template, WORDED)
+    write(nc, {"CLAUDE.md": "# recipes\n\n## Inbox\n\nDrop files for recipes.\n\n"
+                            "## Mail\n\nMail for recipes, from recipes-tools.\n\n### Reading\n\nRead it.\n\n"
+                            "## Own\n\nOurs.\n"})
+    write(outer, {"CLAUDE.md": "# recipes-tools\n\n---\n\n## Inbox\n\nDrop files for recipes-tools.\n\n---\n\n"
+                               "## Mail\n\nMail for recipes-tools, from recipes.\n\n### Reading\n\nRead it.\n\n---\n\n"
+                               "## Own\n"})
+    return nc, outer, checkout
+
+
+def test_inbox_and_mail_sections_with_the_templates_wording_are_in_line(world):
+    pair_with_worded_sections(world)
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert (code, out.splitlines()[-1]) == (0, "Both halves are in line.")
+
+
+def test_older_wording_of_the_inbox_or_mail_section_is_listed_for_that_half(world):
+    nc, outer, _checkout = pair_with_worded_sections(world)
+    write(nc, {"CLAUDE.md": "# recipes\n\n## Inbox\n\nDrop files for recipes.\n\n"
+                            "## Mail\n\nMail for recipes, from recipes-tools.\n\n### Reading\n\nThe old way.\n\n"
+                            "## Own\n"})
+    write(outer, {"CLAUDE.md": "# recipes-tools\n\n## Inbox\n\nOlder.\n\n"
+                               "## Mail\n\nMail for recipes, from recipes-tools.\n\n### Reading\n\nRead it.\n"})
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert code == 1
+    assert out == (f"recipes (non-code): {nc}\n"
+                   "  missing: the template's wording of the section \"## Mail\" in CLAUDE.md\n"
+                   f"recipes-tools (code): {outer}\n"
+                   "  missing: the template's wording of the section \"## Inbox\" in CLAUDE.md\n"
+                   "  missing: the template's wording of the section \"## Mail\" in CLAUDE.md\n"
+                   "3 things to bring into line.\n")
+
+
+def test_a_section_that_is_missing_is_listed_once_not_also_for_its_wording(world):
+    nc, outer, _checkout = pair_with_worded_sections(world)
+    write(nc, {"CLAUDE.md": "# recipes\n\n## Mail\n\nMail for recipes, from recipes-tools.\n\n### Reading\n\nRead it.\n"})
+    code, out, _err = world.conform("recipes", "recipes-tools")
+    assert code == 1
+    assert out == (f"recipes (non-code): {nc}\n"
+                   "  missing: the section \"## Inbox\" in CLAUDE.md\n"
+                   f"recipes-tools (code): {outer}\n  in line\n"
+                   "1 thing to bring into line.\n")
+
+
+def test_a_project_may_word_its_other_shared_sections_itself(world):
+    pair_with_worded_sections(world)
+    write(world.template, {"common/sections/backlog.md": "## Backlog\n\nSet up on {{DATE}}.\n",
+                           "non-code/CLAUDE.md": WORDED["non-code/CLAUDE.md"] + "\n{{> sections/backlog.md}}\n"})
+    nc = os.path.join(world.non_code, "recipes")
+    with open(os.path.join(nc, "CLAUDE.md"), "a") as f:
+        f.write("\n## Backlog\n\nSet up long ago.\n")
     code, out, _err = world.conform("recipes", "recipes-tools")
     assert (code, out.splitlines()[-1]) == (0, "Both halves are in line.")
