@@ -104,9 +104,9 @@ the paths default to where `new-lobster` would put the pair. `DIR` must not exis
 `--claw` (exit 2). For example:
 
 ```
-new-lobster --render-into /tmp/tv --tools video-tools --public \
+new-lobster --render-into /tmp/tv --tools training-video-tools --public \
     --non-code-path ~/projects/non-code/videos/training-video \
-    --tools-path ~/projects/code/videos/video-tools-code/video-tools training-video
+    --tools-path ~/projects/code/videos/training-video-tools-code/training-video-tools training-video
 new-lobster --render-into /tmp/ba --tools book-tools --claws "word-tools google-docs-tools" \
     --non-code-path ~/projects/non-code/writing/beyond-ai \
     --tools-path ~/projects/code/writing/book-tools-code/book-tools beyond-ai
@@ -225,10 +225,10 @@ project, none of the outer files (CLAUDE.md, PLAN.md, DIARY.md, START-HERE.txt, 
 `inbox/`, `.claude/`) inside the checkout. For example, for a pair brought into line:
 
 ```
-$ ./conform training-video video-tools
+$ ./conform training-video training-video-tools
 training-video (non-code): /Users/sq/projects/non-code/videos/training-video
   in line
-video-tools (code): /Users/sq/projects/code/videos/video-tools-code
+training-video-tools (code): /Users/sq/projects/code/videos/training-video-tools-code
   in line
 Both halves are in line.
 ```
